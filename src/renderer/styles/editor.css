@@ -1,0 +1,405 @@
+.notes-prosemirror {
+  min-height: calc(100vh - 300px);
+  padding-bottom: 80px;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 410;
+  line-height: 1.65;
+  letter-spacing: -0.002em;
+  caret-color: var(--accent-strong);
+  word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.notes-prosemirror > *:first-child {
+  margin-top: 0;
+}
+
+.notes-prosemirror p {
+  margin: 0.32em 0;
+}
+
+.notes-prosemirror h1,
+.notes-prosemirror h2,
+.notes-prosemirror h3 {
+  color: var(--text-primary);
+  font-weight: 670;
+  line-height: 1.3;
+  letter-spacing: -0.028em;
+  margin: 1.15em 0 0.3em;
+}
+
+.notes-prosemirror h1 {
+  font-size: 24px;
+}
+
+.notes-prosemirror h2 {
+  font-size: 19px;
+}
+
+.notes-prosemirror h3 {
+  font-size: 16.5px;
+}
+
+.notes-prosemirror strong {
+  font-weight: 660;
+}
+
+.notes-prosemirror em {
+  font-style: italic;
+}
+
+.notes-prosemirror s {
+  color: var(--text-secondary);
+}
+
+.notes-prosemirror mark {
+  background: var(--mark);
+  color: var(--text-primary);
+  border-radius: 2px;
+  padding: 0.05em 0.12em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.notes-prosemirror a {
+  color: var(--link);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--link) 28%, transparent);
+  transition: border-color 120ms ease;
+}
+
+.notes-prosemirror a:hover {
+  border-bottom-color: color-mix(in srgb, var(--link) 62%, transparent);
+}
+
+.notes-prosemirror ul,
+.notes-prosemirror ol {
+  margin: 0.45em 0;
+  padding-left: 1.45em;
+}
+
+.notes-prosemirror li {
+  margin: 0.14em 0;
+  padding-left: 0.15em;
+}
+
+.notes-prosemirror li > p {
+  margin: 0.18em 0;
+}
+
+.notes-prosemirror li::marker {
+  color: var(--text-tertiary);
+}
+
+.notes-prosemirror ul[data-type='taskList'] {
+  list-style: none;
+  margin: 0.55em 0;
+  padding-left: 0.05em;
+}
+
+.notes-prosemirror ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0.32em 0;
+  padding-left: 0;
+}
+
+.notes-prosemirror ul[data-type='taskList'] li > label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-top: 0.27em;
+  user-select: none;
+}
+
+.notes-prosemirror ul[data-type='taskList'] li > label input {
+  position: relative;
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1.5px solid var(--checkbox-border);
+  border-radius: 50%;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.notes-prosemirror ul[data-type='taskList'] li > label input:hover {
+  border-color: color-mix(in srgb, var(--accent-strong) 70%, var(--checkbox-border));
+}
+
+.notes-prosemirror ul[data-type='taskList'] li > label input:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.notes-prosemirror ul[data-type='taskList'] li > label input:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.notes-prosemirror ul[data-type='taskList'] li > label input:checked::after {
+  content: '';
+  position: absolute;
+  top: 2.5px;
+  left: 5px;
+  width: 3.5px;
+  height: 7px;
+  border: solid #302604;
+  border-width: 0 1.7px 1.7px 0;
+  transform: rotate(43deg);
+}
+
+.notes-prosemirror ul[data-type='taskList'] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notes-prosemirror ul[data-type='taskList'] li[data-checked='true'] > div {
+  color: var(--text-tertiary);
+}
+
+.notes-prosemirror ul[data-type='taskList'] li[data-checked='true'] > div p {
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-tertiary) 58%, transparent);
+  text-decoration-thickness: 1px;
+}
+
+.notes-prosemirror blockquote {
+  margin: 1.1em 0;
+  padding: 9px 14px 9px 15px;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 66%, transparent);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: var(--text-secondary);
+}
+
+.notes-prosemirror blockquote p {
+  margin: 0.14em 0;
+}
+
+.notes-prosemirror code {
+  padding: 0.14em 0.32em;
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+  background: var(--code-bg);
+  color: color-mix(in srgb, var(--text-primary) 85%, var(--accent-deep));
+  font-family: 'SFMono-Regular', 'Cascadia Code', 'JetBrains Mono', 'Noto Sans Mono', monospace;
+  font-size: 0.87em;
+}
+
+.notes-prosemirror pre {
+  position: relative;
+  margin: 1em 0;
+  padding: 13px 15px;
+  overflow-x: auto;
+  border: 1px solid var(--code-border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: var(--text-primary);
+  font-family: 'SFMono-Regular', 'Cascadia Code', 'JetBrains Mono', 'Noto Sans Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.notes-prosemirror pre code {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+.notes-prosemirror hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid var(--separator-strong);
+}
+
+.notes-prosemirror img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1em auto;
+  border-radius: 8px;
+  box-shadow: 0 3px 16px color-mix(in srgb, var(--shadow-color) 34%, transparent);
+  cursor: default;
+}
+
+.notes-prosemirror img.ProseMirror-selectednode {
+  outline: 2px solid color-mix(in srgb, var(--accent) 78%, transparent);
+  outline-offset: 3px;
+}
+
+.notes-prosemirror .image-resizer {
+  display: inline-block;
+  max-width: 100%;
+  margin: 1em 0;
+}
+
+.notes-prosemirror .image-resizer img {
+  margin: 0;
+}
+
+.notes-prosemirror .image-resizer .resize-handle {
+  background: var(--accent);
+  border: 1.5px solid var(--bg-editor);
+  border-radius: 50%;
+}
+
+/* TipTap tables */
+.notes-prosemirror .tableWrapper {
+  margin: 1.1em 0;
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+.notes-prosemirror table {
+  width: 100%;
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid var(--separator-strong);
+  border-radius: 8px;
+  table-layout: fixed;
+}
+
+.notes-prosemirror th,
+.notes-prosemirror td {
+  position: relative;
+  min-width: 72px;
+  padding: 7px 10px;
+  border-right: 1px solid var(--separator);
+  border-bottom: 1px solid var(--separator);
+  vertical-align: top;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notes-prosemirror th {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-inset));
+  font-weight: 580;
+}
+
+.notes-prosemirror tr:last-child td {
+  border-bottom: none;
+}
+
+.notes-prosemirror th:last-child,
+.notes-prosemirror td:last-child {
+  border-right: none;
+}
+
+.notes-prosemirror th p,
+.notes-prosemirror td p {
+  margin: 0;
+}
+
+.notes-prosemirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.notes-prosemirror .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -2px;
+  z-index: 20;
+  width: 3px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.notes-prosemirror.resize-cursor {
+  cursor: col-resize;
+}
+
+/* Empty state */
+.notes-prosemirror p.is-editor-empty:first-child::before,
+.notes-prosemirror .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: color-mix(in srgb, var(--text-tertiary) 76%, transparent);
+}
+
+.notes-prosemirror .is-editor-empty:first-child::before {
+  color: color-mix(in srgb, var(--text-tertiary) 76%, transparent);
+}
+
+/* ProseMirror gap cursor */
+.notes-prosemirror .ProseMirror-gapcursor:after {
+  border-top-color: var(--text-primary);
+}
+
+.notes-prosemirror .ProseMirror-dropcursor {
+  border-color: var(--accent);
+}
+
+.notes-prosemirror ::selection {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+.notes-prosemirror .ProseMirror-selectednode {
+  border-radius: 6px;
+}
+
+.notes-prosemirror .ProseMirror-hideselection * {
+  caret-color: transparent;
+}
+
+/* Tables need a hint of breathing room under the toolbar */
+.notes-prosemirror table button {
+  cursor: pointer;
+}
+
+/* Image drag/resize affordances */
+.notes-prosemirror [data-resize-container] {
+  max-width: 100%;
+}
+
+.notes-prosemirror [data-resize-handle] {
+  background: var(--accent);
+}
+
+@media (max-width: 1220px) {
+  .note-paper {
+    padding-top: 26px;
+  }
+
+  .notes-prosemirror {
+    font-size: 14.5px;
+  }
+}
+
+
+/* Native CSS Highlight API: search hits inside the opened note. */
+::highlight(macnotes-search) {
+  background-color: rgba(250, 207, 72, 0.5);
+  color: inherit;
+  border-radius: 2px;
+}
+
+:root[data-theme='dark'] ::highlight(macnotes-search) {
+  background-color: rgba(239, 200, 74, 0.34);
+}
