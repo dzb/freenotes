@@ -2,6 +2,11 @@ name: Build FreeNotes
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional tag to publish, for example v1.0.1'
+        required: false
+        type: string
   push:
     branches: [main]
 
@@ -61,3 +66,46 @@ jobs:
           path: ${{ matrix.files }}
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: FreeNotes ${{ inputs.release_tag }}
+          fail_on_unmatched_files: true
+          files: release-assets/**/*
+          body: |
+            ## FreeNotes ${{ inputs.release_tag }}
+
+            本地优先的 macOS 风格笔记应用，支持 macOS、Windows 和 Linux。
+
+            ### 本期更新
+
+            - 产品更名为 FreeNotes
+            - 支持完整 JSON 备份导出与整体恢复，用于跨平台迁移
+            - 支持单条备忘录导出为自包含 HTML 和 PDF
+            - macOS 使用系统原生红黄绿窗口按钮和原生应用菜单
+            - Windows/Linux 保持原有自绘标题栏
+            - 首次启动自动迁移旧版 MacNotes 数据
+
+            ### 下载
+
+            - macOS Apple Silicon：`FreeNotes-1.0.1-arm64.dmg`
+            - macOS Intel：`FreeNotes-1.0.1-x64.dmg`
+            - Windows x64：`FreeNotes-1.0.1-x64.exe`
+            - Linux x86_64：`FreeNotes-1.0.1-x86_64.AppImage` / `FreeNotes-1.0.1-amd64.deb`
+
+            ### 说明
+
+            当前 macOS 与 Windows 构建未进行代码签名/公证，系统可能显示安全提示。macOS 用户可右键应用选择“打开”；Windows 用户可能看到 SmartScreen 提示。
