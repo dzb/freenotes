@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { Note, SortDirection, SortKey } from '../../shared/types';
+import { api } from '../lib/api';
 import type { SearchResult } from '../lib/search';
 import { displayNoteTitle, highlightTerms } from '../lib/search';
 import { formatListDate, noteCountLabel } from '../lib/format';
@@ -141,7 +142,7 @@ export function NoteList({
               type="button"
               className="chrome-button compose-button"
               aria-label="新建备忘录"
-              title="新建备忘录 (Ctrl+N)"
+              title={api.platform === 'darwin' ? '新建备忘录 (⌘N)' : '新建备忘录 (Ctrl+N)'}
               onClick={onCreateNote}
             >
               <NotebookPen size={17} strokeWidth={1.9} />

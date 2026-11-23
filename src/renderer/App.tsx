@@ -9,6 +9,7 @@ import {
 import {
   AlertTriangle,
   Check,
+  Download,
   FolderClosed,
   HardDrive,
   Keyboard,
@@ -16,6 +17,7 @@ import {
   Moon,
   NotebookPen,
   Sun,
+  Upload,
 } from 'lucide-react';
 import type { Folder, Note, NotebookSettings, ThemePreference } from '../shared/types';
 import { useNotebook } from './hooks/useNotebook';
@@ -49,7 +51,7 @@ interface ToastState {
 
 export default function App() {
   const notebook = useNotebook();
-  const { data, ready, loadError, mutate } = notebook;
+  const { data, ready, loadError, mutate, replaceData } = notebook;
   const [view, setView] = useState<View>({ type: 'all' });
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,6 +67,9 @@ export default function App() {
 
   const themePreference = data?.settings.theme ?? 'system';
   const resolvedTheme = useTheme(themePreference);
+  const isMac = api.platform === 'darwin';
+  const primaryModifier = isMac ? '⌘' : 'Ctrl';
+  const shiftModifier = isMac ? '⇧' : 'Shift';
   const searchActive = searchQuery.trim().length > 0;
   const modalOpen = Boolean(folderDialog || confirm || preferencesOpen);
 
@@ -395,6 +400,8 @@ export default function App() {
       const modifier = event.ctrlKey || event.metaKey;
       if (!modifier || event.altKey || modalOpen) return;
       const key = event.key.toLowerCase();
+      // macOS uses the native menu as the single source of truth for these shortcuts.
+      if (isMac && ['f', ',', 'w', 'q', 'n'].includes(key)) return;
       if (key === 'f') {
         event.preventDefault();
         focusSearch();
@@ -423,7 +430,43 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [createNewNote, focusSearch, modalOpen, notify, openNewFolderDialog]);
+  }, [createNewNote, focusSearch, isMac, modalOpen, notify, openNewFolderDialog]);
+
+  useEffect(() => {
+    return api.onMenuCommand((command) => {
+      if (command === 'new-note') {
+        if (!modalOpen) createNewNote();
+      } else if (command === 'new-folder') {
+        if (!modalOpen) openNewFolderDialog();
+      } else if (command === 'focus-search') {
+        focusSearch();
+      } else if (command === 'open-preferences') {
+        setPreferencesOpen(true);
+      }
+    });
+  }, [createNewNote, focusSearch, modalOpen, openNewFolderDialog]);
+
+  const handleExportBackup = async () => {
+    if (!data) return;
+    const result = await api.exportBackup(data);
+    if (result.ok) notify('完整备份已导出');
+    else if (!result.canceled) notify(result.error ?? '导出备份失败');
+  };
+
+  const handleRestoreBackup = async () => {
+    if (!data) return;
+    const result = await api.restoreBackup(data);
+    if (result.ok && result.data) {
+      replaceData(result.data);
+      setView({ type: 'all' });
+      setSearchQuery('');
+      setSelectedNoteId(null);
+      setPreferencesOpen(false);
+      notify('备份已恢复');
+    } else if (!result.canceled) {
+      notify(result.error ?? '恢复备份失败');
+    }
+  };
 
   const confirmNote = confirm?.kind === 'delete-note'
     ? data?.notes.find((note) => note.id === confirm.noteId) ?? null
@@ -461,7 +504,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell platform-${api.platform}`}>
       <TitleBar
         sidebarVisible={sidebarVisible}
         onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
@@ -667,14 +710,24 @@ export default function App() {
               </div>
             </div>
             <code title={notebook.dataPath}>{notebook.dataPath || '正在读取…'}</code>
-            <button
-              type="button"
-              className="text-action"
-              onClick={() => void api.showDataFolder()}
-            >
-              <FolderClosed size={13} />
-              在文件管理器中显示
-            </button>
+            <div className="storage-actions">
+              <button
+                type="button"
+                className="text-action"
+                onClick={() => void api.showDataFolder()}
+              >
+                <FolderClosed size={13} />
+                在文件管理器中显示
+              </button>
+              <button type="button" className="text-action" onClick={() => void handleExportBackup()}>
+                <Download size={13} />
+                导出完整备份…
+              </button>
+              <button type="button" className="text-action" onClick={() => void handleRestoreBackup()}>
+                <Upload size={13} />
+                从备份恢复…
+              </button>
+            </div>
           </div>
         </div>
 
@@ -683,18 +736,18 @@ export default function App() {
             <Keyboard size={13} /> 快捷键
           </h3>
           <dl className="shortcut-list">
-            <div><dt>新建备忘录</dt><dd><kbd>Ctrl</kbd><kbd>N</kbd></dd></div>
-            <div><dt>新建文件夹</dt><dd><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>N</kbd></dd></div>
-            <div><dt>全文搜索</dt><dd><kbd>Ctrl</kbd><kbd>F</kbd></dd></div>
-            <div><dt>添加链接</dt><dd><kbd>Ctrl</kbd><kbd>K</kbd></dd></div>
-            <div><dt>粗体 / 斜体 / 下划线</dt><dd><kbd>Ctrl</kbd><kbd>B</kbd><kbd>I</kbd><kbd>U</kbd></dd></div>
-            <div><dt>偏好设置</dt><dd><kbd>Ctrl</kbd><kbd>,</kbd></dd></div>
-            <div><dt>关闭窗口</dt><dd><kbd>Ctrl</kbd><kbd>W</kbd></dd></div>
+            <div><dt>新建备忘录</dt><dd><kbd>{primaryModifier}</kbd><kbd>N</kbd></dd></div>
+            <div><dt>新建文件夹</dt><dd><kbd>{primaryModifier}</kbd><kbd>{shiftModifier}</kbd><kbd>N</kbd></dd></div>
+            <div><dt>全文搜索</dt><dd><kbd>{primaryModifier}</kbd><kbd>F</kbd></dd></div>
+            <div><dt>添加链接</dt><dd><kbd>{primaryModifier}</kbd><kbd>K</kbd></dd></div>
+            <div><dt>粗体 / 斜体 / 下划线</dt><dd><kbd>{primaryModifier}</kbd><kbd>B</kbd><kbd>I</kbd><kbd>U</kbd></dd></div>
+            <div><dt>偏好设置</dt><dd><kbd>{primaryModifier}</kbd><kbd>,</kbd></dd></div>
+            <div><dt>关闭窗口</dt><dd><kbd>{primaryModifier}</kbd><kbd>W</kbd></dd></div>
           </dl>
         </div>
 
         <div className="preferences-about">
-          <span>备忘录 for Linux</span>
+          <span>FreeNotes for macOS · Windows · Linux</span>
           <span>版本 {notebook.version}</span>
         </div>
       </Modal>

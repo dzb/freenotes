@@ -1,17 +1,36 @@
-import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeTheme, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeTheme,
+  shell,
+} from 'electron';
 import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
-import type { NotebookData, SaveResult } from '../shared/types';
+import type { NotebookData, RestoreResult, SaveResult } from '../shared/types';
+import { isNotebookData, parseBackupContent } from '../shared/backup';
+import { migrateLegacyData } from './migrateData';
+import { installApplicationMenu } from './menu';
+import { exportBackupFile, exportNoteHtmlFile, exportNotePdfFile } from './files';
 
-app.setName('MacNotes');
+app.setName('FreeNotes');
+
+const MAX_BACKUP_BYTES = 120 * 1024 * 1024;
+const MAX_RESTORE_POINTS = 5;
 
 // Allow scripts and portable installs to keep their data in an isolated directory.
-if (process.env.MACNOTES_DATA_DIR) {
-  const customDataDir = path.resolve(process.env.MACNOTES_DATA_DIR);
-  fs.mkdirSync(customDataDir, { recursive: true });
-  app.setPath('userData', customDataDir);
+const customNewDataDir = process.env.FREENOTES_DATA_DIR;
+const customLegacyDataDir = process.env.MACNOTES_DATA_DIR;
+const customDataDir = customNewDataDir ?? customLegacyDataDir;
+if (customDataDir) {
+  const resolvedDataDir = path.resolve(customDataDir);
+  fs.mkdirSync(resolvedDataDir, { recursive: true });
+  app.setPath('userData', resolvedDataDir);
 }
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
@@ -20,6 +39,7 @@ let dataPath = '';
 let backupDir = '';
 let backupDay: string | null = null;
 let writeGeneration = 0;
+let startupError: Error | null = null;
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -31,54 +51,51 @@ function todayKey(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+function restoreStamp(): string {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${todayKey()}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
 function setupPaths() {
   const userData = app.getPath('userData');
+  const legacyUserData =
+    customLegacyDataDir !== undefined
+      ? path.resolve(customLegacyDataDir)
+      : path.join(app.getPath('appData'), 'MacNotes');
+
+  try {
+    const migration = migrateLegacyData(userData, legacyUserData);
+    if (migration.migrated) {
+      console.info('[freenotes] Migrated legacy MacNotes data from', migration.source);
+    }
+  } catch (error) {
+    console.error('[freenotes] Failed to migrate legacy MacNotes data:', error);
+    throw new Error('旧版 MacNotes 数据迁移失败，请检查数据目录权限。');
+  }
+
   dataPath = path.join(userData, 'notes-data.json');
   backupDir = path.join(userData, 'backups');
   fs.mkdirSync(userData, { recursive: true });
   fs.mkdirSync(backupDir, { recursive: true });
 }
 
-function isValidNotebookData(value: unknown): value is NotebookData {
-  if (!value || typeof value !== 'object') return false;
-  const data = value as Partial<NotebookData>;
-  if (data.version !== 1) return false;
-  if (!Array.isArray(data.folders) || !Array.isArray(data.notes)) return false;
-  if (!data.settings || typeof data.settings !== 'object') return false;
-  const foldersOk = data.folders.every(
-    (f) => f && typeof f.id === 'string' && typeof f.name === 'string' && typeof f.createdAt === 'number',
-  );
-  const notesOk = data.notes.every(
-    (n) =>
-      n &&
-      typeof n.id === 'string' &&
-      typeof n.folderId === 'string' &&
-      typeof n.title === 'string' &&
-      typeof n.content === 'string' &&
-      typeof n.text === 'string' &&
-      typeof n.createdAt === 'number' &&
-      typeof n.updatedAt === 'number' &&
-      (n.deletedAt === null || typeof n.deletedAt === 'number'),
-  );
-  return foldersOk && notesOk;
-}
-
 async function readData(): Promise<NotebookData | null> {
   try {
     const raw = await fsp.readFile(dataPath, 'utf8');
     const parsed: unknown = JSON.parse(raw);
-    if (!isValidNotebookData(parsed)) {
+    if (!isNotebookData(parsed)) {
       throw new Error('数据格式不正确');
     }
     return parsed;
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') return null;
-    console.error('[macnotes] Failed to read data file:', error);
+    console.error('[freenotes] Failed to read data file:', error);
     try {
       const corruptPath = path.join(app.getPath('userData'), `notes-data.corrupt-${Date.now()}.json`);
       await fsp.copyFile(dataPath, corruptPath);
-      console.error('[macnotes] Preserved unreadable data at', corruptPath);
+      console.error('[freenotes] Preserved unreadable data at', corruptPath);
     } catch {
       // Keep the original file untouched if the safety copy fails.
       return null;
@@ -105,17 +122,17 @@ async function maybeBackupExistingFile(): Promise<void> {
       .reverse();
     await Promise.all(entries.slice(10).map((name) => fsp.rm(path.join(backupDir, name), { force: true })));
   } catch (error) {
-    console.error('[macnotes] Backup failed:', error);
+    console.error('[freenotes] Backup failed:', error);
   }
 }
 
 async function writeData(data: unknown): Promise<SaveResult> {
-  if (!isValidNotebookData(data)) {
+  if (!isNotebookData(data)) {
     return { ok: false, error: '数据格式无效，已取消保存。' };
   }
   const generation = ++writeGeneration;
   const json = JSON.stringify(data);
-  if (json.length > 120 * 1024 * 1024) {
+  if (json.length > MAX_BACKUP_BYTES) {
     return { ok: false, error: '数据文件超过 120MB，保存已取消。' };
   }
 
@@ -137,17 +154,20 @@ async function writeData(data: unknown): Promise<SaveResult> {
     return { ok: true, savedAt: Date.now() };
   } catch (error) {
     await fsp.rm(tmpPath, { force: true }).catch(() => undefined);
-    console.error('[macnotes] Failed to save data:', error);
+    console.error('[freenotes] Failed to save data:', error);
     return { ok: false, error: '写入本地文件失败。' };
   }
 }
 
 function writeDataSync(data: unknown): SaveResult {
-  if (!isValidNotebookData(data)) {
+  if (!isNotebookData(data)) {
     return { ok: false, error: '数据格式无效，已取消保存。' };
   }
   const generation = ++writeGeneration;
   const json = JSON.stringify(data);
+  if (json.length > MAX_BACKUP_BYTES) {
+    return { ok: false, error: '数据文件超过 120MB，保存已取消。' };
+  }
   const tmpPath = `${dataPath}.${process.pid}.${generation}.flush.tmp`;
   try {
     fs.writeFileSync(tmpPath, json, { encoding: 'utf8', mode: 0o600 });
@@ -163,21 +183,105 @@ function writeDataSync(data: unknown): SaveResult {
     } catch {
       // ignore cleanup failures
     }
-    console.error('[macnotes] Failed to flush data:', error);
+    console.error('[freenotes] Failed to flush data:', error);
     return { ok: false, error: '写入本地文件失败。' };
   }
 }
 
+async function createRestoreSnapshot(data: NotebookData): Promise<void> {
+  const snapshotPath = path.join(backupDir, `pre-restore-${restoreStamp()}.json`);
+  const tmpPath = `${snapshotPath}.${process.pid}.tmp`;
+  try {
+    await fsp.writeFile(tmpPath, JSON.stringify(data), { mode: 0o600 });
+    await fsp.rename(tmpPath, snapshotPath);
+  } catch (error) {
+    await fsp.rm(tmpPath, { force: true }).catch(() => undefined);
+    throw error;
+  }
+
+  const entries = (await fsp.readdir(backupDir))
+    .filter((name) => /^pre-restore-\d{4}-\d{2}-\d{2}-\d{6}\.json$/.test(name))
+    .sort()
+    .reverse();
+  await Promise.all(entries.slice(MAX_RESTORE_POINTS).map((name) => fsp.rm(path.join(backupDir, name), { force: true })));
+}
+
+async function restoreBackup(currentData: NotebookData): Promise<RestoreResult> {
+  try {
+    const window = BrowserWindow.getFocusedWindow();
+    const options: Electron.OpenDialogOptions = {
+      title: '从 FreeNotes 备份恢复',
+      properties: ['openFile'],
+      filters: [{ name: 'FreeNotes 备份', extensions: ['json'] }],
+    };
+    const picked = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options);
+    if (picked.canceled || picked.filePaths.length === 0) {
+      return { ok: false, canceled: true };
+    }
+
+    const filePath = picked.filePaths[0];
+    const stat = await fsp.stat(filePath);
+    if (!stat.isFile() || stat.size > MAX_BACKUP_BYTES) {
+      return { ok: false, error: '备份文件无效或超过 120MB 限制。' };
+    }
+
+    const raw = await fsp.readFile(filePath, 'utf8');
+    const imported = parseBackupContent(raw);
+    const folderCount = imported.folders.length;
+    const trashCount = imported.notes.filter((note) => note.deletedAt !== null).length;
+    const noteCount = imported.notes.length - trashCount;
+
+    const confirmation = window
+      ? await dialog.showMessageBox(window, {
+          type: 'warning',
+          buttons: ['取消', '恢复备份'],
+          defaultId: 0,
+          cancelId: 0,
+          message: '恢复备份会覆盖当前全部备忘录。',
+          detail: `备份包含 ${folderCount} 个文件夹、${noteCount} 条备忘录和 ${trashCount} 条最近删除。\n\n恢复前会自动保存当前数据快照。`,
+        })
+      : await dialog.showMessageBox({
+          type: 'warning',
+          buttons: ['取消', '恢复备份'],
+          defaultId: 0,
+          cancelId: 0,
+          message: '恢复备份会覆盖当前全部备忘录。',
+          detail: `备份包含 ${folderCount} 个文件夹、${noteCount} 条备忘录和 ${trashCount} 条最近删除。\n\n恢复前会自动保存当前数据快照。`,
+        });
+    if (confirmation.response !== 1) return { ok: false, canceled: true };
+
+    await createRestoreSnapshot(currentData);
+    const saved = await writeData(imported);
+    if (!saved.ok) return { ok: false, error: saved.error ?? '恢复备份失败。' };
+    return { ok: true, data: imported };
+  } catch (error) {
+    console.error('[freenotes] Backup restore failed:', error);
+    const message = error instanceof Error ? error.message : '';
+    return {
+      ok: false,
+      error: message.includes('备份') || message.includes('JSON') ? message : '恢复备份失败，请检查备份文件和数据目录权限。',
+    };
+  }
+}
+
 function createWindow() {
+  const isMac = process.platform === 'darwin';
   mainWindow = new BrowserWindow({
     width: 1380,
     height: 880,
     minWidth: 980,
     minHeight: 640,
     show: false,
-    frame: false,
+    title: 'FreeNotes',
+    ...(isMac
+      ? {
+          titleBarStyle: 'hiddenInset' as const,
+          trafficLightPosition: { x: 18, y: 20 },
+        }
+      : { frame: false }),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#242320' : '#f6f3ed',
-    title: '备忘录',
     icon: app.isPackaged
       ? path.join(process.resourcesPath, 'icon.png')
       : path.join(__dirname, '../resources/icon.png'),
@@ -284,14 +388,20 @@ function createWindow() {
 
 function registerIpc() {
   ipcMain.handle('data:load', async () => {
+    if (startupError) throw startupError;
     const data = await readData();
     return { data, dataPath, version: app.getVersion() };
   });
 
-  ipcMain.handle('data:save', async (_event: IpcMainInvokeEvent, data: unknown) => writeData(data));
+  ipcMain.handle('data:save', async (_event: IpcMainInvokeEvent, data: unknown) => {
+    if (startupError) return { ok: false, error: startupError.message };
+    return writeData(data);
+  });
 
   ipcMain.on('data:flush', (event: IpcMainEvent, data: unknown) => {
-    event.returnValue = writeDataSync(data);
+    event.returnValue = startupError
+      ? { ok: false, error: startupError.message }
+      : writeDataSync(data);
   });
 
   ipcMain.handle('app:info', () => ({
@@ -312,6 +422,31 @@ function registerIpc() {
     if (typeof url === 'string' && /^(https?:|mailto:)/i.test(url)) {
       await shell.openExternal(url);
     }
+  });
+
+  ipcMain.handle('backup:export', async (_event, data: unknown) => {
+    if (!isNotebookData(data)) return { ok: false, error: '当前数据格式无效，无法导出。' };
+    return exportBackupFile(data);
+  });
+
+  ipcMain.handle('backup:restore', async (_event, currentData: unknown) => {
+    if (startupError) return { ok: false, error: startupError.message };
+    if (!isNotebookData(currentData)) return { ok: false, error: '当前数据格式无效，无法恢复。' };
+    return restoreBackup(currentData);
+  });
+
+  ipcMain.handle('note:export-html', async (_event, html: unknown, suggestedName: unknown) => {
+    if (typeof html !== 'string' || typeof suggestedName !== 'string') {
+      return { ok: false, error: '导出参数无效。' };
+    }
+    return exportNoteHtmlFile(html, suggestedName);
+  });
+
+  ipcMain.handle('note:export-pdf', async (_event, html: unknown, suggestedName: unknown) => {
+    if (typeof html !== 'string' || typeof suggestedName !== 'string') {
+      return { ok: false, error: '导出参数无效。' };
+    }
+    return exportNotePdfFile(html, suggestedName);
   });
 
   ipcMain.on('window:minimize', (event) => {
@@ -337,14 +472,18 @@ if (gotLock) {
   });
 
   app.whenReady().then(() => {
-    setupPaths();
+    try {
+      setupPaths();
+    } catch (error) {
+      startupError = error instanceof Error ? error : new Error('无法初始化数据目录。');
+    }
     registerIpc();
-    Menu.setApplicationMenu(null);
     app.setAboutPanelOptions({
-      applicationName: '备忘录',
+      applicationName: 'FreeNotes',
       applicationVersion: app.getVersion(),
       copyright: '本地优先的笔记应用',
     });
+    installApplicationMenu(isDev);
     createWindow();
 
     app.on('activate', () => {

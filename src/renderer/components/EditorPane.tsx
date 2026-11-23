@@ -22,9 +22,11 @@ import {
   CheckCircle2,
   ChevronDown,
   Copy,
+  FileText,
   FolderClosed,
   Loader2,
   MoreHorizontal,
+  Printer,
   NotebookPen,
   Pin,
   RotateCcw,
@@ -37,6 +39,8 @@ import { copyText } from '../lib/clipboard';
 import { countWords, formatClock, formatFullDate } from '../lib/format';
 import { imageFileToDataUrl } from '../lib/image';
 import { useSearchHighlights } from '../hooks/useSearchHighlights';
+import { buildStandaloneNoteHtml } from '../lib/noteExport';
+import { displayNoteTitle } from '../lib/search';
 import { FormatToolbar } from './FormatToolbar';
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from './Menu';
 import { Modal } from './Modal';
@@ -74,7 +78,7 @@ export function EditorPane(props: EditorPaneProps) {
             <NotebookPen size={14} />
             新建备忘录
           </button>
-          <kbd className="empty-shortcut">Ctrl N</kbd>
+          <kbd className="empty-shortcut">{api.platform === 'darwin' ? '⌘ N' : 'Ctrl N'}</kbd>
         </div>
       </section>
     );
@@ -100,6 +104,7 @@ function NoteEditor({
   searchQuery,
 }: Omit<EditorPaneProps, 'note' | 'onCreateNote'> & { note: Note }) {
   const isTrash = note.deletedAt !== null;
+  const isMac = api.platform === 'darwin';
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [moreAnchor, setMoreAnchor] = useState<DOMRect | null>(null);
@@ -339,6 +344,18 @@ function NoteEditor({
     setMoreAnchor(null);
   };
 
+  const exportNote = async (kind: 'html' | 'pdf') => {
+    if (!editor) return;
+    setMoreAnchor(null);
+    const html = buildStandaloneNoteHtml(displayNoteTitle(note), editor.getHTML());
+    const result =
+      kind === 'html'
+        ? await api.exportNoteHtml(html, displayNoteTitle(note))
+        : await api.exportNotePdf(html, displayNoteTitle(note));
+    if (result.ok) onNotify(kind === 'html' ? '已导出 HTML' : '已导出 PDF');
+    else if (!result.canceled) onNotify(result.error ?? '导出失败');
+  };
+
   const saveLabel =
     saveState === 'saving'
       ? '正在保存…'
@@ -514,6 +531,17 @@ function NoteEditor({
           onSelect={() => void copyPlainText()}
         />
         <MenuSeparator />
+        <MenuItem
+          icon={<FileText size={14} />}
+          label="导出为 HTML…"
+          onSelect={() => void exportNote('html')}
+        />
+        <MenuItem
+          icon={<Printer size={14} />}
+          label="导出为 PDF…"
+          onSelect={() => void exportNote('pdf')}
+        />
+        <MenuSeparator />
         <MenuLabel>移到文件夹</MenuLabel>
         {folders.map((folder) => (
           <MenuItem
@@ -543,7 +571,7 @@ function NoteEditor({
       <Modal
         open={linkOpen}
         title={hasSelection ? '编辑链接' : '插入链接'}
-        description="使用 Ctrl + 单击可以在浏览器中打开链接。"
+        description={`使用 ${isMac ? 'Command' : 'Ctrl'} + 单击可以在浏览器中打开链接。`}
         onClose={() => setLinkOpen(false)}
         footer={
           <>

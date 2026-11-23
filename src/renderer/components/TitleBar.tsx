@@ -1,5 +1,6 @@
 import { useState, type RefObject } from 'react';
 import { PanelLeftClose, PanelLeftOpen, Search, X } from 'lucide-react';
+import { api } from '../lib/api';
 import { TrafficLights } from './TrafficLights';
 
 interface TitleBarProps {
@@ -23,11 +24,12 @@ export function TitleBar({
 }: TitleBarProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const hasQuery = searchQuery.trim().length > 0;
+  const isMac = api.platform === 'darwin';
 
   return (
     <header className="titlebar">
       <div className="titlebar-left">
-        <TrafficLights />
+        {isMac ? null : <TrafficLights />}
         <button
           type="button"
           className="chrome-button sidebar-toggle no-drag"
@@ -44,9 +46,13 @@ export function TitleBar({
 
       <div
         className="titlebar-drag-region"
-        onDoubleClick={() => {
-          if (window.macnotes) window.macnotes.toggleMaximize();
-        }}
+        onDoubleClick={
+          isMac
+            ? undefined
+            : () => {
+                if (window.macnotes) window.macnotes.toggleMaximize();
+              }
+        }
       />
 
       <div className={`search-field no-drag${searchFocused ? ' is-focused' : ''}${hasQuery ? ' has-query' : ''}`}>
@@ -75,7 +81,7 @@ export function TitleBar({
             <X size={12} strokeWidth={2.4} />
           </button>
         ) : (
-          <kbd className={`search-shortcut${searchFocused ? ' is-hidden' : ''}`}>Ctrl F</kbd>
+          <kbd className={`search-shortcut${searchFocused ? ' is-hidden' : ''}`}>{isMac ? '⌘ F' : 'Ctrl F'}</kbd>
         )}
         {hasQuery && resultCount !== undefined && resultCount !== null ? (
           <span className="search-result-count" aria-live="polite">

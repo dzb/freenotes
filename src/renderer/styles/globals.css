@@ -205,6 +205,10 @@ textarea:focus-visible,
   flex: 0 0 auto;
 }
 
+.platform-darwin .titlebar-left {
+  padding-left: 70px;
+}
+
 .traffic-lights {
   display: flex;
   align-items: center;
@@ -1692,6 +1696,12 @@ mark {
   border: 1px solid var(--separator);
   border-radius: 9px;
   background: var(--bg-inset);
+}
+
+.storage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
 }
 
 .storage-card-heading {

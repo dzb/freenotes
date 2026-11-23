@@ -22,10 +22,9 @@ const url = server.resolvedUrls?.local?.[0] ?? 'http://127.0.0.1:5173/';
 server.printUrls();
 
 const electronArgs = ['.'];
-// The npm-distributed Electron binary ships a non-setuid chrome-sandbox helper.
-// Running the local development build without the Chromium sandbox is expected;
-// packaged release builds should still be sandboxed whenever the system allows it.
-electronArgs.push('--no-sandbox');
+// The npm-distributed Electron binary ships a non-setuid chrome-sandbox helper
+// on Linux. macOS and Windows do not need this development-only workaround.
+if (process.platform === 'linux') electronArgs.push('--no-sandbox');
 
 const child = spawn(electronPath, electronArgs, {
   stdio: 'inherit',

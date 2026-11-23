@@ -4,11 +4,11 @@ import { stripHtml } from './format';
 const now = Date.now();
 
 const content = {
-  welcome: `<p>这是一款为 Linux 打造的本地备忘录。它借鉴了 macOS 备忘录的安静与顺手，所有内容都只保存在你的电脑里。</p>
+  welcome: `<p>这是一款本地优先的备忘录。它借鉴了 macOS 备忘录的安静与顺手，所有内容都只保存在你的电脑里。</p>
 <h2>从这三个动作开始</h2>
 <ul>
-<li>按 <strong>Ctrl + N</strong> 新建一条备忘录，直接开始书写</li>
-<li>按 <strong>Ctrl + F</strong> 搜索全部备忘录，关键词会在结果中高亮</li>
+<li>按 <strong>Ctrl / ⌘ + N</strong> 新建一条备忘录，直接开始书写</li>
+<li>按 <strong>Ctrl / ⌘ + F</strong> 搜索全部备忘录，关键词会在结果中高亮</li>
 <li>把备忘录拖动到左侧文件夹，快速完成整理</li>
 </ul>
 <h2>已经为你准备好</h2>

@@ -13,6 +13,7 @@ import {
   Trash,
 } from 'lucide-react';
 import type { Folder, NotebookData } from '../../shared/types';
+import { api } from '../lib/api';
 import type { View } from '../lib/view';
 import { NOTE_DRAG_MIME } from '../lib/view';
 import { Menu, MenuItem, MenuSeparator } from './Menu';
@@ -113,7 +114,7 @@ export function Sidebar({
               className="sidebar-add-button"
               onClick={onCreateFolder}
               aria-label="新建文件夹"
-              title="新建文件夹 (Ctrl+Shift+N)"
+              title={api.platform === 'darwin' ? '新建文件夹 (⌘⇧N)' : '新建文件夹 (Ctrl+Shift+N)'}
             >
               <Plus size={14} strokeWidth={2.4} />
             </button>

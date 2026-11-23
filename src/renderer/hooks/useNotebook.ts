@@ -16,6 +16,7 @@ export interface NotebookController {
   dataPath: string;
   version: string;
   mutate: (updater: (previous: NotebookData) => NotebookData) => void;
+  replaceData: (next: NotebookData) => void;
 }
 
 export function useNotebook(): NotebookController {
@@ -61,6 +62,16 @@ export function useNotebook(): NotebookController {
 
   const mutate = useCallback((updater: (previous: NotebookData) => NotebookData) => {
     setData((previous) => (previous ? updater(previous) : previous));
+  }, []);
+
+  const replaceData = useCallback((next: NotebookData) => {
+    dataRef.current = next;
+    setData(next);
+    setReady(true);
+    setLoadError(null);
+    setSaveState('saved');
+    setSaveError(null);
+    setLastSavedAt(Date.now());
   }, []);
 
   useEffect(() => {
@@ -120,5 +131,6 @@ export function useNotebook(): NotebookController {
     dataPath,
     version,
     mutate,
+    replaceData,
   };
 }

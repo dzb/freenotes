@@ -17,6 +17,7 @@ import {
   Table2,
   Underline as UnderlineIcon,
 } from 'lucide-react';
+import { api } from '../lib/api';
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from './Menu';
 
 interface FormatToolbarProps {
@@ -46,6 +47,7 @@ interface FormatState {
 }
 
 export function FormatToolbar({ editor, onOpenLink, onInsertImage, onInsertTable }: FormatToolbarProps) {
+  const modifier = api.platform === 'darwin' ? '⌘' : 'Ctrl';
   const [styleAnchor, setStyleAnchor] = useState<DOMRect | null>(null);
   const [overflowAnchor, setOverflowAnchor] = useState<DOMRect | null>(null);
   const [tableAnchor, setTableAnchor] = useState<DOMRect | null>(null);
@@ -105,7 +107,7 @@ export function FormatToolbar({ editor, onOpenLink, onInsertImage, onInsertTable
       <span className="toolbar-divider" aria-hidden="true" />
 
       <ToolbarButton
-        label="粗体 (Ctrl+B)"
+        label={`粗体 (${modifier}+B)`}
         active={format.bold}
         onClick={() => chain().toggleBold().run()}
         onMouseDown={preventBlur}
@@ -113,7 +115,7 @@ export function FormatToolbar({ editor, onOpenLink, onInsertImage, onInsertTable
         <Bold size={15} strokeWidth={2.2} />
       </ToolbarButton>
       <ToolbarButton
-        label="斜体 (Ctrl+I)"
+        label={`斜体 (${modifier}+I)`}
         active={format.italic}
         onClick={() => chain().toggleItalic().run()}
         onMouseDown={preventBlur}
@@ -121,7 +123,7 @@ export function FormatToolbar({ editor, onOpenLink, onInsertImage, onInsertTable
         <Italic size={15} strokeWidth={2.2} />
       </ToolbarButton>
       <ToolbarButton
-        label="下划线 (Ctrl+U)"
+        label={`下划线 (${modifier}+U)`}
         active={format.underline}
         onClick={() => chain().toggleUnderline().run()}
         onMouseDown={preventBlur}
@@ -185,7 +187,7 @@ export function FormatToolbar({ editor, onOpenLink, onInsertImage, onInsertTable
       <span className="toolbar-divider optional-tool" aria-hidden="true" />
 
       <ToolbarButton
-        label={format.link ? '编辑链接 (Ctrl+K)' : '添加链接 (Ctrl+K)'}
+        label={format.link ? `编辑链接 (${modifier}+K)` : `添加链接 (${modifier}+K)`}
         active={format.link}
         onClick={onOpenLink}
         onMouseDown={preventBlur}
