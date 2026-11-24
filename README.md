@@ -45,42 +45,52 @@
 
 ## 下载
 
-当前版本为 **1.0.3**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
+当前版本为 **1.0.4**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
 
 | 平台 | 推荐产物 |
 | --- | --- |
-| macOS Apple Silicon | `FreeNotes-1.0.3-arm64.dmg` 或 `.zip` |
-| macOS Intel | `FreeNotes-1.0.3-x64.dmg` 或 `.zip` |
-| Windows x64 | `FreeNotes-1.0.3-x64.exe` |
-| Linux x86_64 | `FreeNotes-1.0.3-x86_64.AppImage` 或 `.deb` |
+| macOS Apple Silicon | `FreeNotes-1.0.4-arm64.dmg` 或 `.zip` |
+| macOS Intel | `FreeNotes-1.0.4-x64.dmg` 或 `.zip` |
+| Windows x64 | `FreeNotes-1.0.4-x64.exe` |
+| Linux x86_64 | `FreeNotes-1.0.4-x86_64.AppImage` 或 `.deb` |
 
-> macOS 构建当前未使用 Developer ID 证书签名和公证，首次打开时可能需要右键应用选择“打开”。Windows 未签名构建可能触发 SmartScreen 提示。
+> macOS 构建使用 ad-hoc 签名，但没有 Developer ID 证书和 notarization。首次打开仍可能触发 Gatekeeper 提示；如果系统显示“无法验证”，可在“系统设置 → 隐私与安全性”中选择“仍要打开”。Windows 未签名构建可能触发 SmartScreen 提示。
 
 ### macOS
 
 下载 DMG 后打开，将 FreeNotes 拖入“应用程序”即可。使用 ZIP 时解压后同样拖入“应用程序”。
 
+当前 macOS 包使用 ad-hoc 签名，但没有 Apple Developer ID 公证。如果首次启动提示应用已损坏或被拦截，可执行：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/FreeNotes.app
+codesign --force --deep --sign - /Applications/FreeNotes.app
+open /Applications/FreeNotes.app
+```
+
+也可以尝试“系统设置 → 隐私与安全性 → 仍要打开”。要彻底消除 Gatekeeper 提示，需要在发布流程中配置 Developer ID 证书并完成 notarization。
+
 FreeNotes 使用 macOS 原生红黄绿窗口按钮和原生应用菜单；Windows/Linux 保持应用内自绘的标题栏样式。
 
 ### Windows
 
-下载 `FreeNotes-1.0.3-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
+下载 `FreeNotes-1.0.4-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
 
 ### Linux
 
 ```bash
 # Debian / Ubuntu
-sudo apt install ./FreeNotes-1.0.3-amd64.deb
+sudo apt install ./FreeNotes-1.0.4-amd64.deb
 
 # AppImage
-chmod +x FreeNotes-1.0.3-x86_64.AppImage
-./FreeNotes-1.0.3-x86_64.AppImage
+chmod +x FreeNotes-1.0.4-x86_64.AppImage
+./FreeNotes-1.0.4-x86_64.AppImage
 ```
 
 如果系统限制了 Electron 的 SUID sandbox，AppImage 可以显式关闭 Chromium sandbox（仅建议在信任的本地构建上这样做）：
 
 ```bash
-./FreeNotes-1.0.3-x86_64.AppImage --no-sandbox
+./FreeNotes-1.0.4-x86_64.AppImage --no-sandbox
 ```
 
 ## 从旧版 MacNotes 迁移

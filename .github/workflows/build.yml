@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Optional tag to publish, for example v1.0.3'
+        description: 'Optional tag to publish, for example v1.0.4'
         required: false
         type: string
   push:
@@ -99,15 +99,16 @@ jobs:
             - 移除整库 120MB 保存上限
             - 单条 HTML/PDF 导出仍保持自包含
             - 兼容旧版 JSON 备份恢复
+            - macOS 构建使用 ad-hoc 签名，修复无签名 App Bundle 被误判为已损坏的问题
             - macOS 使用系统原生红黄绿窗口按钮和原生应用菜单
 
             ### 下载
 
-            - macOS Apple Silicon：`FreeNotes-1.0.3-arm64.dmg`
-            - macOS Intel：`FreeNotes-1.0.3-x64.dmg`
-            - Windows x64：`FreeNotes-1.0.3-x64.exe`
-            - Linux x86_64：`FreeNotes-1.0.3-x86_64.AppImage` / `FreeNotes-1.0.3-amd64.deb`
+            - macOS Apple Silicon：`FreeNotes-1.0.4-arm64.dmg`
+            - macOS Intel：`FreeNotes-1.0.4-x64.dmg`
+            - Windows x64：`FreeNotes-1.0.4-x64.exe`
+            - Linux x86_64：`FreeNotes-1.0.4-x86_64.AppImage` / `FreeNotes-1.0.4-amd64.deb`
 
             ### 说明
 
-            当前 macOS 与 Windows 构建未进行代码签名/公证，系统可能显示安全提示。macOS 用户可右键应用选择“打开”；Windows 用户可能看到 SmartScreen 提示。
+            当前 macOS 构建使用 ad-hoc 签名但未公证，Windows 构建未使用代码签名，系统可能显示安全提示。macOS 如果仍被 Gatekeeper 拦截，运行 xattr -dr com.apple.quarantine /Applications/FreeNotes.app 后重试；Windows 用户可能看到 SmartScreen 提示。
