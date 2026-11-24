@@ -25,7 +25,7 @@ import { useTheme } from './hooks/useTheme';
 import { api } from './lib/api';
 import { createFolder } from './lib/data';
 import { applyNotePatch, createNote, sortNotes } from './lib/note';
-import { buildSearchIndex, displayNoteTitle, searchNotesFromIndex } from './lib/search';
+import { buildSearchIndex, displayNoteTitle, searchNotesFromIndex, type SearchIndexEntry } from './lib/search';
 import type { View } from './lib/view';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
@@ -63,6 +63,7 @@ export default function App() {
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchEntryCache = useRef<WeakMap<Note, SearchIndexEntry>>(new WeakMap());
   const toastSequence = useRef(0);
 
   const themePreference = data?.settings.theme ?? 'system';
@@ -112,10 +113,13 @@ export default function App() {
     return sortNotes(active, data.settings.sortBy, data.settings.sortDir);
   }, [data]);
 
-  const searchIndex = useMemo(() => buildSearchIndex(data?.notes ?? []), [data?.notes]);
+  const searchIndex = useMemo(() => {
+    if (!searchActive) return null;
+    return buildSearchIndex(data?.notes ?? [], searchEntryCache.current);
+  }, [data?.notes, searchActive]);
 
   const searchedResults = useMemo(() => {
-    if (!data || !searchActive) return null;
+    if (!data || !searchActive || !searchIndex) return null;
     return searchNotesFromIndex(searchIndex, searchQuery);
   }, [data, searchActive, searchQuery, searchIndex]);
 

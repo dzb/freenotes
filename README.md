@@ -45,14 +45,14 @@
 
 ## 下载
 
-当前版本为 **1.0.4**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
+当前版本为 **1.0.5**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
 
 | 平台 | 推荐产物 |
 | --- | --- |
-| macOS Apple Silicon | `FreeNotes-1.0.4-arm64.dmg` 或 `.zip` |
-| macOS Intel | `FreeNotes-1.0.4-x64.dmg` 或 `.zip` |
-| Windows x64 | `FreeNotes-1.0.4-x64.exe` |
-| Linux x86_64 | `FreeNotes-1.0.4-x86_64.AppImage` 或 `.deb` |
+| macOS Apple Silicon | `FreeNotes-1.0.5-arm64.dmg` 或 `.zip` |
+| macOS Intel | `FreeNotes-1.0.5-x64.dmg` 或 `.zip` |
+| Windows x64 | `FreeNotes-1.0.5-x64.exe` |
+| Linux x86_64 | `FreeNotes-1.0.5-x86_64.AppImage` 或 `.deb` |
 
 > macOS 构建使用 ad-hoc 签名，但没有 Developer ID 证书和 notarization。首次打开仍可能触发 Gatekeeper 提示；如果系统显示“无法验证”，可在“系统设置 → 隐私与安全性”中选择“仍要打开”。Windows 未签名构建可能触发 SmartScreen 提示。
 
@@ -74,23 +74,23 @@ FreeNotes 使用 macOS 原生红黄绿窗口按钮和原生应用菜单；Window
 
 ### Windows
 
-下载 `FreeNotes-1.0.4-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
+下载 `FreeNotes-1.0.5-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
 
 ### Linux
 
 ```bash
 # Debian / Ubuntu
-sudo apt install ./FreeNotes-1.0.4-amd64.deb
+sudo apt install ./FreeNotes-1.0.5-amd64.deb
 
 # AppImage
-chmod +x FreeNotes-1.0.4-x86_64.AppImage
-./FreeNotes-1.0.4-x86_64.AppImage
+chmod +x FreeNotes-1.0.5-x86_64.AppImage
+./FreeNotes-1.0.5-x86_64.AppImage
 ```
 
 如果系统限制了 Electron 的 SUID sandbox，AppImage 可以显式关闭 Chromium sandbox（仅建议在信任的本地构建上这样做）：
 
 ```bash
-./FreeNotes-1.0.4-x86_64.AppImage --no-sandbox
+./FreeNotes-1.0.5-x86_64.AppImage --no-sandbox
 ```
 
 ## 从旧版 MacNotes 迁移
@@ -184,7 +184,7 @@ FreeNotes-backup-2026-11-23-1830.freenotes.zip
 - **主进程**使用 Electron 内置 SQLite（`node:sqlite`）保存笔记：WAL + 事务 + 行级增量更新、关闭前同步 flush、每日数据库快照。图片保存为附件文件，通过自定义协议加载
 - **预加载脚本**通过 `contextBridge` 暴露窄接口；渲染进程没有 Node.js 访问权限，生产构建带 CSP
 
-全文搜索保持现有语义：按空白拆分为多个“必须同时命中”的词，也支持 `"用引号包住的短语"`。SQLite 负责持久化，渲染进程维护归一化后的内存搜索缓存，避免每次输入都重复处理全部正文。
+全文搜索保持现有语义：按空白拆分为多个“必须同时命中”的词，也支持 `"用引号包住的短语"`。SQLite 负责持久化，渲染进程维护归一化后的内存搜索缓存；搜索关闭时不建索引，搜索开启后只重新处理发生变化的笔记。
 
 ## 项目结构
 

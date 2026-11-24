@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Optional tag to publish, for example v1.0.4'
+        description: 'Optional tag to publish, for example v1.0.5'
         required: false
         type: string
   push:
@@ -99,15 +99,16 @@ jobs:
             - 移除整库 120MB 保存上限
             - 单条 HTML/PDF 导出仍保持自包含
             - 兼容旧版 JSON 备份恢复
+            - 搜索关闭时不再构建索引，编辑时只更新变化的单条搜索缓存
             - macOS 构建使用 ad-hoc 签名，修复无签名 App Bundle 被误判为已损坏的问题
             - macOS 使用系统原生红黄绿窗口按钮和原生应用菜单
 
             ### 下载
 
-            - macOS Apple Silicon：`FreeNotes-1.0.4-arm64.dmg`
-            - macOS Intel：`FreeNotes-1.0.4-x64.dmg`
-            - Windows x64：`FreeNotes-1.0.4-x64.exe`
-            - Linux x86_64：`FreeNotes-1.0.4-x86_64.AppImage` / `FreeNotes-1.0.4-amd64.deb`
+            - macOS Apple Silicon：`FreeNotes-1.0.5-arm64.dmg`
+            - macOS Intel：`FreeNotes-1.0.5-x64.dmg`
+            - Windows x64：`FreeNotes-1.0.5-x64.exe`
+            - Linux x86_64：`FreeNotes-1.0.5-x86_64.AppImage` / `FreeNotes-1.0.5-amd64.deb`
 
             ### 说明
 

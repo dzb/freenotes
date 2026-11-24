@@ -18,6 +18,7 @@ export interface SearchIndexEntry {
   title: string;
   normalizedTitle: string;
   normalizedBody: string;
+  normalizedAll: string;
   collapsedBody: string;
   normalizedCollapsedBody: string;
 }
@@ -75,21 +76,32 @@ export function displayNoteTitle(note: Note): string {
   return firstLine ? firstLine.slice(0, 80) : '新建备忘录';
 }
 
-export function buildSearchIndex(notes: Note[]): SearchIndex {
+export function buildSearchIndex(
+  notes: Note[],
+  cache?: WeakMap<Note, SearchIndexEntry>,
+): SearchIndex {
   const index: SearchIndex = new Map();
   for (const note of notes) {
     if (note.deletedAt !== null) continue;
-    const title = displayNoteTitle(note);
-    const body = notePlainText(note);
-    const collapsedBody = body.replace(/\s+/g, ' ').trim();
-    index.set(note.id, {
-      note,
-      title,
-      normalizedTitle: normalize(title),
-      normalizedBody: normalize(body),
-      collapsedBody,
-      normalizedCollapsedBody: normalize(collapsedBody),
-    });
+    let entry = cache?.get(note);
+    if (!entry) {
+      const title = displayNoteTitle(note);
+      const body = notePlainText(note);
+      const collapsedBody = body.replace(/\s+/g, ' ').trim();
+      const normalizedTitle = normalize(title);
+      const normalizedBody = normalize(body);
+      entry = {
+        note,
+        title,
+        normalizedTitle,
+        normalizedBody,
+        normalizedAll: `${normalizedTitle}\n${normalizedBody}`,
+        collapsedBody,
+        normalizedCollapsedBody: normalize(collapsedBody),
+      };
+      cache?.set(note, entry);
+    }
+    index.set(note.id, entry);
   }
   return index;
 }
@@ -137,8 +149,7 @@ export function searchNotesFromIndex(index: SearchIndex, query: string): SearchR
   const results: SearchResult[] = [];
 
   for (const entry of index.values()) {
-    const { note, normalizedTitle, normalizedBody } = entry;
-    const normalizedAll = `${normalizedTitle}\n${normalizedBody}`;
+    const { note, normalizedTitle, normalizedBody, normalizedAll } = entry;
     if (!normalizedTokens.every((token) => normalizedAll.includes(token))) continue;
 
     let score = 0;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Note } from '../src/shared/types';
-import { buildSearchIndex, parseSearchQuery, searchNotes, displayNoteTitle, highlightTerms, searchNotesFromIndex } from '../src/renderer/lib/search';
+import { buildSearchIndex, parseSearchQuery, searchNotes, displayNoteTitle, highlightTerms, searchNotesFromIndex, type SearchIndexEntry } from '../src/renderer/lib/search';
 
 const makeNote = (overrides: Partial<Note>): Note => ({
   id: crypto.randomUUID(),
@@ -98,6 +98,24 @@ describe('searchNotes', () => {
     const index = buildSearchIndex(notes);
     expect(searchNotesFromIndex(index, '灵感')).toEqual(searchNotes(notes, '灵感'));
     expect(searchNotesFromIndex(index, '灵感 散步')).toEqual(searchNotes(notes, '灵感 散步'));
+  });
+
+  it('reuses unchanged search entries and only rebuilds changed notes', () => {
+    const cache = new WeakMap<Note, SearchIndexEntry>();
+    const initial = buildSearchIndex(notes, cache);
+    const reused = buildSearchIndex(notes, cache);
+    const titleEntry = initial.get('title');
+    const bodyEntry = initial.get('body');
+    expect(titleEntry).toBeDefined();
+    expect(bodyEntry).toBeDefined();
+    expect(reused.get('title')).toBe(titleEntry);
+    expect(reused.get('body')).toBe(bodyEntry);
+
+    const changedNotes = notes.map((note) => (note.id === 'title' ? { ...note, title: '新的灵感标题' } : note));
+    const changed = buildSearchIndex(changedNotes, cache);
+    expect(changed.get('title')).not.toBe(titleEntry);
+    expect(changed.get('body')).toBe(bodyEntry);
+    expect(searchNotesFromIndex(changed, '新的灵感')).toHaveLength(1);
   });
 
   it('falls back to the first line when a note has no title', () => {
