@@ -27,7 +27,7 @@ export function useNotebook(): NotebookController {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [dataPath, setDataPath] = useState('');
-  const [version, setVersion] = useState('1.0.8');
+  const [version, setVersion] = useState('1.0.9');
 
   const dataRef = useRef<NotebookData | null>(null);
   const saveSequence = useRef(0);
