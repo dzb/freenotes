@@ -7,6 +7,7 @@
   -moz-osx-font-smoothing: grayscale;
 
   --titlebar-height: 52px;
+  --editor-font-size: 14px;
   --sidebar-width: 226px;
   --list-width: 302px;
 
@@ -1689,6 +1690,25 @@ mark {
   color: var(--text-primary);
   font-weight: 560;
   box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.appearance-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.appearance-option-label {
+  flex: 0 0 56px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+}
+
+.font-size-segmented .theme-choice {
+  min-width: 42px;
+  justify-content: center;
+  padding: 0 8px;
 }
 
 .storage-card {

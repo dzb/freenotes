@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import {
@@ -48,6 +49,14 @@ interface ToastState {
   id: number;
   message: string;
 }
+
+const FONT_FAMILY_OPTIONS = [
+  { value: 'system', label: '系统' },
+  { value: 'serif', label: '衬线' },
+  { value: 'mono', label: '等宽' },
+] as const;
+
+const FONT_SIZE_OPTIONS = [13, 14, 15, 16, 18] as const;
 
 export default function App() {
   const notebook = useNotebook();
@@ -510,7 +519,10 @@ export default function App() {
   }
 
   return (
-    <div className={`app-shell platform-${api.platform}`}>
+    <div
+      className={`app-shell platform-${api.platform} editor-font-${data.settings.fontFamily}`}
+      style={{ '--editor-font-size': `${data.settings.fontSize}px` } as CSSProperties}
+    >
       <TitleBar
         sidebarVisible={sidebarVisible}
         onToggleSidebar={() => setSidebarVisible((visible) => !visible)}
@@ -579,6 +591,8 @@ export default function App() {
           onCreateNote={createNewNote}
           onNotify={notify}
           searchQuery={searchActive ? searchQuery : ''}
+          fontFamily={data.settings.fontFamily}
+          fontSize={data.settings.fontSize}
         />
       </div>
 
@@ -703,6 +717,37 @@ export default function App() {
               onClick={() => changeTheme('dark')}
             />
           </div>
+
+          <div className="appearance-option">
+            <span className="appearance-option-label">正文字号</span>
+            <div className="theme-segmented font-size-segmented" role="group" aria-label="正文字号">
+              {FONT_SIZE_OPTIONS.map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  className={`theme-choice${data.settings.fontSize === size ? ' is-active' : ''}`}
+                  aria-pressed={data.settings.fontSize === size}
+                  onClick={() => updateSettings({ fontSize: size })}
+                >
+                  {size}px
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="appearance-option">
+            <span className="appearance-option-label">正文字体</span>
+            <div className="theme-segmented" role="group" aria-label="正文字体">
+              {FONT_FAMILY_OPTIONS.map((option) => (
+                <ThemeChoice
+                  key={option.value}
+                  active={data.settings.fontFamily === option.value}
+                  label={option.label}
+                  onClick={() => updateSettings({ fontFamily: option.value })}
+                />
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="preferences-section">
@@ -763,7 +808,7 @@ export default function App() {
 
 interface ThemeChoiceProps {
   active: boolean;
-  icon: ReactNode;
+  icon?: ReactNode;
   label: string;
   onClick: () => void;
 }

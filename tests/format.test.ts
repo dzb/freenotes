@@ -69,5 +69,7 @@ describe('data normalization', () => {
     expect(normalized.notes[0].folderId).toBe(normalized.folders[0].id);
     expect(normalized.settings.theme).toBe('system');
     expect(normalized.settings.sortBy).toBe('updatedAt');
+    expect(normalized.settings.fontFamily).toBe('system');
+    expect(normalized.settings.fontSize).toBe(14);
   });
 });

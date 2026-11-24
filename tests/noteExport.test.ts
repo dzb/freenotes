@@ -14,6 +14,12 @@ describe('standalone note HTML export', () => {
     expect(html).toContain('@page');
   });
 
+  it('applies the selected note typography to shared HTML', () => {
+    const html = buildStandaloneNoteHtml('字体', '<p>正文</p>', { fontFamily: 'serif', fontSize: 18 });
+    expect(html).toContain('font-size: 18px');
+    expect(html).toContain('Noto Serif CJK SC');
+  });
+
   it('does not carry scripts or inline event handlers into a shared file', () => {
     const html = buildStandaloneNoteHtml(
       '安全',

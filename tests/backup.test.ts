@@ -19,7 +19,7 @@ const data: NotebookData = {
       deletedAt: null,
     },
   ],
-  settings: { theme: 'system', sortBy: 'updatedAt', sortDir: 'desc' },
+  settings: { theme: 'system', sortBy: 'updatedAt', sortDir: 'desc', fontFamily: 'system', fontSize: 14 },
 };
 
 describe('backup validation', () => {
@@ -27,7 +27,7 @@ describe('backup validation', () => {
     const raw = JSON.stringify({
       format: 'freenotes-backup',
       formatVersion: 1,
-      appVersion: '1.0.6',
+      appVersion: '1.0.7',
       exportedAt: 123,
       data,
     });

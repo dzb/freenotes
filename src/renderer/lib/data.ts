@@ -1,10 +1,7 @@
-import type { Folder, Note, NotebookData, NotebookSettings } from '../../shared/types';
+import type { Folder, Note, NotebookData } from '../../shared/types';
+import { DEFAULT_SETTINGS, normalizeSettings } from '../../shared/settings';
 
-export const DEFAULT_SETTINGS: NotebookSettings = {
-  theme: 'system',
-  sortBy: 'updatedAt',
-  sortDir: 'desc',
-};
+export { DEFAULT_SETTINGS };
 
 export function createFolder(name: string): Folder {
   return {
@@ -71,13 +68,7 @@ export function normalizeData(raw: NotebookData): NotebookData {
         })
     : [];
 
-  const settings: NotebookSettings = {
-    ...DEFAULT_SETTINGS,
-    ...(raw.settings && typeof raw.settings === 'object' ? raw.settings : {}),
-  };
-  if (!['system', 'light', 'dark'].includes(settings.theme)) settings.theme = 'system';
-  if (!['updatedAt', 'createdAt', 'title'].includes(settings.sortBy)) settings.sortBy = 'updatedAt';
-  if (!['asc', 'desc'].includes(settings.sortDir)) settings.sortDir = 'desc';
+  const settings = normalizeSettings(raw.settings);
 
   return { version: 1, folders, notes, settings };
 }

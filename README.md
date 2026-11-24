@@ -30,7 +30,7 @@
 
 - **像 macOS 备忘录一样工作**：三栏布局、暖白色纸张、金色选中态、无边框窗口控制，以及克制的动效。
 - **一个入口找到全部内容**：顶部搜索框跨文件夹搜索标题和正文，支持多个关键词、英文大小写与重音忽略；结果片段与正文内都会高亮命中词。
-- **专注写字**：标题、正文自动保存；支持标题样式、加粗、斜体、下划线、删除线、高亮、引用、项目符号、编号列表、待办清单、链接、图片和表格。
+- **专注写字**：标题、正文自动保存；支持标题样式、加粗、斜体、下划线、删除线、高亮、引用、项目符号、编号列表、待办清单、链接、图片和表格；正文默认 14px，可在偏好设置中调整字号和系统/衬线/等宽字体。
 - **真正把数据留在本地**：主数据使用 SQLite（WAL + 事务），图片保存为附件文件并通过索引关联；每天自动保留一个轻量数据库快照。
 - **方便迁移和分享**：可导出/恢复完整 ZIP 备份包，也可把单条备忘录导出为自包含 HTML 或 PDF。
 - **桌面应用该有的细节**：文件夹、置顶、最近删除、拖拽归档、排序、深色模式、系统外观跟随、快捷键和原生右键编辑菜单。
@@ -45,14 +45,14 @@
 
 ## 下载
 
-当前版本为 **1.0.6**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
+当前版本为 **1.0.7**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
 
 | 平台 | 推荐产物 |
 | --- | --- |
-| macOS Apple Silicon | `FreeNotes-1.0.6-arm64.dmg` 或 `.zip` |
-| macOS Intel | `FreeNotes-1.0.6-x64.dmg` 或 `.zip` |
-| Windows x64 | `FreeNotes-1.0.6-x64.exe` |
-| Linux x86_64 | `FreeNotes-1.0.6-x86_64.AppImage`、`.deb` 或 `.rpm` |
+| macOS Apple Silicon | `FreeNotes-1.0.7-arm64.dmg` 或 `.zip` |
+| macOS Intel | `FreeNotes-1.0.7-x64.dmg` 或 `.zip` |
+| Windows x64 | `FreeNotes-1.0.7-x64.exe` |
+| Linux x86_64 | `FreeNotes-1.0.7-x86_64.AppImage`、`.deb` 或 `.rpm` |
 
 > macOS 构建使用 ad-hoc 签名，但没有 Developer ID 证书和 notarization。首次打开仍可能触发 Gatekeeper 提示；如果系统显示“无法验证”，可在“系统设置 → 隐私与安全性”中选择“仍要打开”。Windows 未签名构建可能触发 SmartScreen 提示。
 
@@ -74,7 +74,7 @@ FreeNotes 使用 macOS 原生红黄绿窗口按钮和原生应用菜单；Window
 
 ### Windows
 
-下载 `FreeNotes-1.0.6-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
+下载 `FreeNotes-1.0.7-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
 
 ### Linux
 
@@ -82,20 +82,20 @@ RPM 包可以被 Fedora 自带软件中心或 PackageKit 打开安装，也可�
 
 ```bash
 # Fedora / RHEL
-sudo dnf install ./FreeNotes-1.0.6-x86_64.rpm
+sudo dnf install ./FreeNotes-1.0.7-x86_64.rpm
 
 # Debian / Ubuntu
-sudo apt install ./FreeNotes-1.0.6-amd64.deb
+sudo apt install ./FreeNotes-1.0.7-amd64.deb
 
 # AppImage
-chmod +x FreeNotes-1.0.6-x86_64.AppImage
-./FreeNotes-1.0.6-x86_64.AppImage
+chmod +x FreeNotes-1.0.7-x86_64.AppImage
+./FreeNotes-1.0.7-x86_64.AppImage
 ```
 
 如果系统限制了 Electron 的 SUID sandbox，AppImage 可以显式关闭 Chromium sandbox（仅建议在信任的本地构建上这样做）：
 
 ```bash
-./FreeNotes-1.0.6-x86_64.AppImage --no-sandbox
+./FreeNotes-1.0.7-x86_64.AppImage --no-sandbox
 ```
 
 ## 从旧版 MacNotes 迁移
@@ -117,6 +117,7 @@ FreeNotes 首次启动时会检查旧版 MacNotes 的数据目录。如果新目
 - 顶部搜索框是全局入口，搜索所有未删除的备忘录。
 - 正文上方工具条可以切换样式、插入清单/表格/图片、添加链接。
 - 编辑器右上角 `···` 菜单可以导出当前备忘录为 HTML 或 PDF。
+- 偏好设置 → 外观可以调整正文字号和字体族。
 - 偏好设置 → 本地存储可以导出完整备份或从备份恢复。
 
 ### 快捷键

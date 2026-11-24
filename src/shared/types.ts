@@ -1,6 +1,8 @@
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type SortKey = 'updatedAt' | 'createdAt' | 'title';
 export type SortDirection = 'asc' | 'desc';
+export type FontFamily = 'system' | 'serif' | 'mono';
+export type FontSize = 13 | 14 | 15 | 16 | 18;
 export type AppPlatform = 'darwin' | 'win32' | 'linux' | 'browser';
 
 export interface Folder {
@@ -28,6 +30,8 @@ export interface NotebookSettings {
   theme: ThemePreference;
   sortBy: SortKey;
   sortDir: SortDirection;
+  fontFamily: FontFamily;
+  fontSize: FontSize;
 }
 
 export interface NotebookData {

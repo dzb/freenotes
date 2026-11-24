@@ -99,6 +99,8 @@ export function createSeedData(): NotebookData {
       theme: 'system',
       sortBy: 'updatedAt',
       sortDir: 'desc',
+      fontFamily: 'system',
+      fontSize: 14,
     },
   };
 }

@@ -1,3 +1,4 @@
+import type { FontFamily, FontSize } from '../../shared/types';
 import { escapeHtml } from './format';
 
 function sanitizeRichHtml(html: string): string {
@@ -7,7 +8,22 @@ function sanitizeRichHtml(html: string): string {
     .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
 }
 
-const EXPORT_STYLES = `
+export interface NoteExportTypography {
+  fontFamily: FontFamily;
+  fontSize: FontSize;
+}
+
+const FONT_STACKS: Record<FontFamily, string> = {
+  system:
+    '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Noto Sans CJK SC", "PingFang SC", sans-serif',
+  serif:
+    '"Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", Georgia, serif',
+  mono:
+    '"SFMono-Regular", "Cascadia Code", "JetBrains Mono", "Noto Sans Mono", "Noto Sans CJK SC", monospace',
+};
+
+function exportStyles(typography: NoteExportTypography): string {
+  return `
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
   html { background: #ffffff; }
@@ -17,15 +33,15 @@ const EXPORT_STYLES = `
     padding: 48px 52px 64px;
     color: #2c2b28;
     background: #ffffff;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", "Noto Sans CJK SC", "PingFang SC", sans-serif;
-    font-size: 15px;
+    font-family: ${FONT_STACKS[typography.fontFamily]};
+    font-size: ${typography.fontSize}px;
     line-height: 1.75;
     word-break: break-word;
   }
   h1, h2, h3 { color: #1f1e1b; line-height: 1.35; margin: 1.4em 0 0.55em; }
-  h1 { font-size: 30px; }
-  h2 { font-size: 23px; }
-  h3 { font-size: 18px; }
+  h1 { font-size: 2em; }
+  h2 { font-size: 1.53em; }
+  h3 { font-size: 1.2em; }
   p { margin: 0.65em 0; }
   a { color: #a56a1b; text-decoration: underline; text-underline-offset: 2px; }
   strong { font-weight: 650; }
@@ -55,13 +71,18 @@ const EXPORT_STYLES = `
   @page { size: A4; margin: 18mm; }
   @media print {
     html, body { background: #ffffff; }
-    body { max-width: none; padding: 0; font-size: 13.5px; }
+    body { max-width: none; padding: 0; }
     a { color: inherit; }
     img, table, blockquote, pre { break-inside: avoid; }
   }
 `;
+}
 
-export function buildStandaloneNoteHtml(title: string, content: string): string {
+export function buildStandaloneNoteHtml(
+  title: string,
+  content: string,
+  typography: NoteExportTypography = { fontFamily: 'system', fontSize: 14 },
+): string {
   const safeTitle = escapeHtml(title.trim());
   const safeContent = sanitizeRichHtml(content || '<p></p>');
   return `<!doctype html>
@@ -71,7 +92,7 @@ export function buildStandaloneNoteHtml(title: string, content: string): string 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="generator" content="FreeNotes" />
   <title>${safeTitle || '未命名备忘录'}</title>
-  <style>${EXPORT_STYLES}</style>
+  <style>${exportStyles(typography)}</style>
 </head>
 <body>
   <h1 class="note-export-title">${safeTitle}</h1>

@@ -32,7 +32,7 @@ import {
   RotateCcw,
   Trash2,
 } from 'lucide-react';
-import type { Folder, Note } from '../../shared/types';
+import type { Folder, FontFamily, FontSize, Note } from '../../shared/types';
 import type { SaveState } from '../hooks/useNotebook';
 import { api } from '../lib/api';
 import { copyText } from '../lib/clipboard';
@@ -61,6 +61,8 @@ interface EditorPaneProps {
   onCreateNote: () => void;
   onNotify: (message: string) => void;
   searchQuery: string;
+  fontFamily: FontFamily;
+  fontSize: FontSize;
 }
 
 export function EditorPane(props: EditorPaneProps) {
@@ -102,6 +104,8 @@ function NoteEditor({
   onMoveToFolder,
   onNotify,
   searchQuery,
+  fontFamily,
+  fontSize,
 }: Omit<EditorPaneProps, 'note' | 'onCreateNote'> & { note: Note }) {
   const isTrash = note.deletedAt !== null;
   const isMac = api.platform === 'darwin';
@@ -349,7 +353,7 @@ function NoteEditor({
   const exportNote = async (kind: 'html' | 'pdf') => {
     if (!editor) return;
     setMoreAnchor(null);
-    const html = buildStandaloneNoteHtml(displayNoteTitle(note), editor.getHTML());
+    const html = buildStandaloneNoteHtml(displayNoteTitle(note), editor.getHTML(), { fontFamily, fontSize });
     const result =
       kind === 'html'
         ? await api.exportNoteHtml(html, displayNoteTitle(note))

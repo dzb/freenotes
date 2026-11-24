@@ -54,7 +54,7 @@ function sampleData(): NotebookData {
         deletedAt: 30,
       },
     ],
-    settings: { theme: 'dark', sortBy: 'createdAt', sortDir: 'asc' },
+    settings: { theme: 'dark', sortBy: 'createdAt', sortDir: 'asc', fontFamily: 'serif', fontSize: 16 },
   };
 }
 
@@ -94,7 +94,7 @@ describe('NotebookDatabase', () => {
           pinned: false,
         },
       ],
-      settings: { theme: 'light', sortBy: 'title', sortDir: 'desc' },
+      settings: { theme: 'light', sortBy: 'title', sortDir: 'desc', fontFamily: 'mono', fontSize: 13 },
     };
 
     const result = db.save(changed);
@@ -122,7 +122,7 @@ describe('NotebookDatabase', () => {
           deletedAt: null,
         },
       ],
-      settings: { theme: 'system', sortBy: 'updatedAt', sortDir: 'desc' },
+      settings: { theme: 'system', sortBy: 'updatedAt', sortDir: 'desc', fontFamily: 'system', fontSize: 14 },
     };
 
     expect(db.replace(replacement).ok).toBe(true);
@@ -170,7 +170,51 @@ describe('NotebookDatabase', () => {
     const version = snapshot.prepare('PRAGMA user_version').get() as { user_version: number };
     snapshot.close();
     expect(notes.count).toBe(2);
-    expect(version.user_version).toBe(2);
+    expect(version.user_version).toBe(3);
+  });
+
+  it('migrates a schema v2 database and adds typography defaults', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'freenotes-v2-db-'));
+    tempDirs.push(dir);
+    const filePath = path.join(dir, 'notes.db');
+    const legacy = new DatabaseSync(filePath);
+    legacy.exec(`
+      CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
+      CREATE TABLE folders (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL) STRICT;
+      CREATE TABLE notes (
+        id TEXT PRIMARY KEY,
+        folder_id TEXT NOT NULL REFERENCES folders(id) ON DELETE RESTRICT,
+        title TEXT NOT NULL, content TEXT NOT NULL, text TEXT NOT NULL,
+        pinned INTEGER NOT NULL DEFAULT 0 CHECK (pinned IN (0, 1)),
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER
+      ) STRICT;
+      CREATE TABLE settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        theme TEXT NOT NULL, sort_by TEXT NOT NULL, sort_dir TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE attachments (
+        id TEXT PRIMARY KEY, relative_path TEXT NOT NULL UNIQUE,
+        file_name TEXT NOT NULL, mime_type TEXT NOT NULL, byte_size INTEGER NOT NULL,
+        sha256 TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL
+      ) STRICT;
+      PRAGMA user_version = 2;
+      INSERT INTO meta(key, value) VALUES('initialized', '1');
+      INSERT INTO meta(key, value) VALUES('attachments_migrated', '1');
+      INSERT INTO folders(id, name, created_at) VALUES('f1', '旧数据库', 1);
+      INSERT INTO settings(id, theme, sort_by, sort_dir) VALUES(1, 'light', 'title', 'asc');
+    `);
+    legacy.close();
+
+    const upgraded = new NotebookDatabase(filePath);
+    databases.push(upgraded);
+    const loaded = upgraded.load();
+    expect(loaded?.settings).toEqual({
+      theme: 'light',
+      sortBy: 'title',
+      sortDir: 'asc',
+      fontFamily: 'system',
+      fontSize: 14,
+    });
   });
 
   it('migrates a schema v1 database and marks attachments for extraction', () => {
@@ -208,7 +252,7 @@ describe('NotebookDatabase', () => {
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'attachments'")
       .get();
     connection.close();
-    expect(version.user_version).toBe(2);
+    expect(version.user_version).toBe(3);
     expect(hasAttachments).toBeTruthy();
   });
 });

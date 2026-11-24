@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import type { NotebookData, RestoreResult, SaveResult } from '../shared/types';
 import { isNotebookData, parseBackupContent } from '../shared/backup';
+import { normalizeSettings } from '../shared/settings';
 import { migrateLegacyData } from './migrateData';
 import { installApplicationMenu } from './menu';
 import { exportNoteHtmlFile, exportNotePdfFile } from './files';
@@ -208,6 +209,7 @@ async function restoreBackup(_currentData: NotebookData): Promise<RestoreResult>
     } else {
       imported = parseBackupContent(await fsp.readFile(filePath, 'utf8'));
     }
+    imported = { ...imported, settings: normalizeSettings(imported.settings) };
 
     const folderCount = imported.folders.length;
     const trashCount = imported.notes.filter((note) => note.deletedAt !== null).length;

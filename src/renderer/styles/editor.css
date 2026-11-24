@@ -1,9 +1,19 @@
+.editor-font-serif .notes-prosemirror,
+.editor-font-serif .note-title-input {
+  font-family: 'Songti SC', 'STSong', 'Noto Serif CJK SC', 'Source Han Serif SC', Georgia, serif;
+}
+
+.editor-font-mono .notes-prosemirror,
+.editor-font-mono .note-title-input {
+  font-family: 'SFMono-Regular', 'Cascadia Code', 'JetBrains Mono', 'Noto Sans Mono', 'Noto Sans CJK SC', monospace;
+}
+
 .notes-prosemirror {
   min-height: calc(100vh - 300px);
   padding-bottom: 80px;
   outline: none;
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: var(--editor-font-size, 14px);
   font-weight: 410;
   line-height: 1.65;
   letter-spacing: -0.002em;
@@ -32,15 +42,15 @@
 }
 
 .notes-prosemirror h1 {
-  font-size: 24px;
+  font-size: 1.6em;
 }
 
 .notes-prosemirror h2 {
-  font-size: 19px;
+  font-size: 1.267em;
 }
 
 .notes-prosemirror h3 {
-  font-size: 16.5px;
+  font-size: 1.1em;
 }
 
 .notes-prosemirror strong {
@@ -209,7 +219,7 @@
   background: var(--code-bg);
   color: var(--text-primary);
   font-family: 'SFMono-Regular', 'Cascadia Code', 'JetBrains Mono', 'Noto Sans Mono', monospace;
-  font-size: 12.5px;
+  font-size: 0.83em;
   line-height: 1.55;
 }
 
@@ -286,7 +296,7 @@
   border-bottom: 1px solid var(--separator);
   vertical-align: top;
   text-align: left;
-  font-size: 13px;
+  font-size: 0.87em;
   line-height: 1.5;
 }
 
@@ -387,9 +397,6 @@
     padding-top: 26px;
   }
 
-  .notes-prosemirror {
-    font-size: 14.5px;
-  }
 }
 
 

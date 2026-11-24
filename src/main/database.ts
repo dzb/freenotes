@@ -2,13 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { AttachmentRecord, Note, NotebookData, NotebookSettings, SaveResult } from '../shared/types';
+import { DEFAULT_SETTINGS, normalizeSettings } from '../shared/settings';
 
-const SCHEMA_VERSION = 2;
-const DEFAULT_SETTINGS: NotebookSettings = {
-  theme: 'system',
-  sortBy: 'updatedAt',
-  sortDir: 'desc',
-};
+const SCHEMA_VERSION = 3;
 
 interface FolderRow {
   id: string;
@@ -32,6 +28,8 @@ interface SettingsRow {
   theme: string;
   sort_by: string;
   sort_dir: string;
+  font_family: string;
+  font_size: number;
 }
 
 interface MetaRow {
@@ -76,7 +74,9 @@ const SCHEMA_SQL = `
     id INTEGER PRIMARY KEY CHECK (id = 1),
     theme TEXT NOT NULL,
     sort_by TEXT NOT NULL,
-    sort_dir TEXT NOT NULL
+    sort_dir TEXT NOT NULL,
+    font_family TEXT NOT NULL DEFAULT 'system',
+    font_size INTEGER NOT NULL DEFAULT 14
   ) STRICT;
 
   CREATE TABLE IF NOT EXISTS attachments (
@@ -127,6 +127,11 @@ const ATTACHMENTS_SCHEMA_SQL = `
     ON attachments(relative_path);
 `;
 
+const FONT_SETTINGS_SCHEMA_SQL = `
+  ALTER TABLE settings ADD COLUMN font_family TEXT NOT NULL DEFAULT 'system';
+  ALTER TABLE settings ADD COLUMN font_size INTEGER NOT NULL DEFAULT 14;
+`;
+
 function folderChanged(previous: NotebookData['folders'][number] | undefined, next: NotebookData['folders'][number]): boolean {
   return !previous || previous.name !== next.name || previous.createdAt !== next.createdAt;
 }
@@ -150,7 +155,9 @@ function settingsChanged(previous: NotebookSettings | undefined, next: NotebookS
     !previous ||
     previous.theme !== next.theme ||
     previous.sortBy !== next.sortBy ||
-    previous.sortDir !== next.sortDir
+    previous.sortDir !== next.sortDir ||
+    previous.fontFamily !== next.fontFamily ||
+    previous.fontSize !== next.fontSize
   );
 }
 
@@ -183,13 +190,17 @@ export class NotebookDatabase {
     try {
       if (version === 0) {
         this.db.exec(SCHEMA_SQL);
-        this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION};`);
         this.setMeta('attachments_migrated', '1');
-      } else if (version === 1) {
-        this.db.exec(ATTACHMENTS_SCHEMA_SQL);
-        this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION};`);
-        this.setMeta('attachments_migrated', '0');
+      } else {
+        if (version < 2) {
+          this.db.exec(ATTACHMENTS_SCHEMA_SQL);
+          this.setMeta('attachments_migrated', '0');
+        }
+        if (version < 3) {
+          this.db.exec(FONT_SETTINGS_SCHEMA_SQL);
+        }
       }
+      this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION};`);
       this.db.exec('COMMIT;');
     } catch (error) {
       this.db.exec('ROLLBACK;');
@@ -306,21 +317,17 @@ export class NotebookDatabase {
       )
       .all() as unknown as NoteRow[];
     const settingsRow = this.db
-      .prepare('SELECT theme, sort_by, sort_dir FROM settings WHERE id = 1')
+      .prepare('SELECT theme, sort_by, sort_dir, font_family, font_size FROM settings WHERE id = 1')
       .get() as SettingsRow | undefined;
 
     const settings: NotebookSettings = settingsRow
-      ? {
-          theme: ['system', 'light', 'dark'].includes(settingsRow.theme)
-            ? (settingsRow.theme as NotebookSettings['theme'])
-            : DEFAULT_SETTINGS.theme,
-          sortBy: ['updatedAt', 'createdAt', 'title'].includes(settingsRow.sort_by)
-            ? (settingsRow.sort_by as NotebookSettings['sortBy'])
-            : DEFAULT_SETTINGS.sortBy,
-          sortDir: ['asc', 'desc'].includes(settingsRow.sort_dir)
-            ? (settingsRow.sort_dir as NotebookSettings['sortDir'])
-            : DEFAULT_SETTINGS.sortDir,
-        }
+      ? normalizeSettings({
+          theme: settingsRow.theme,
+          sortBy: settingsRow.sort_by,
+          sortDir: settingsRow.sort_dir,
+          fontFamily: settingsRow.font_family,
+          fontSize: settingsRow.font_size,
+        })
       : { ...DEFAULT_SETTINGS };
 
     return {
@@ -353,8 +360,9 @@ export class NotebookDatabase {
     return this.readNotebook();
   }
 
-  save(data: NotebookData): SaveResult {
+  save(input: NotebookData): SaveResult {
     if (this.closed) return { ok: false, error: '数据库已经关闭。' };
+    const data: NotebookData = { ...input, settings: normalizeSettings(input.settings) };
     const savedAt = Date.now();
     const previousFolders = new Map((this.lastSaved?.folders ?? []).map((folder) => [folder.id, folder]));
     const previousNotes = new Map((this.lastSaved?.notes ?? []).map((note) => [note.id, note]));
@@ -381,11 +389,13 @@ export class NotebookDatabase {
     const deleteNote = this.db.prepare('DELETE FROM notes WHERE id = ?');
     const deleteFolder = this.db.prepare('DELETE FROM folders WHERE id = ?');
     const upsertSettings = this.db.prepare(`
-      INSERT INTO settings(id, theme, sort_by, sort_dir) VALUES(1, ?, ?, ?)
+      INSERT INTO settings(id, theme, sort_by, sort_dir, font_family, font_size) VALUES(1, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         theme = excluded.theme,
         sort_by = excluded.sort_by,
-        sort_dir = excluded.sort_dir
+        sort_dir = excluded.sort_dir,
+        font_family = excluded.font_family,
+        font_size = excluded.font_size
     `);
 
     this.db.exec('BEGIN IMMEDIATE;');
@@ -417,7 +427,13 @@ export class NotebookDatabase {
         if (!incomingFolderIds.has(id)) deleteFolder.run(id);
       }
       if (settingsChanged(this.lastSaved?.settings, data.settings)) {
-        upsertSettings.run(data.settings.theme, data.settings.sortBy, data.settings.sortDir);
+        upsertSettings.run(
+          data.settings.theme,
+          data.settings.sortBy,
+          data.settings.sortDir,
+          data.settings.fontFamily,
+          data.settings.fontSize,
+        );
       }
       this.setMeta('notebook_version', '1');
       this.setMeta('initialized', '1');
@@ -432,8 +448,9 @@ export class NotebookDatabase {
     }
   }
 
-  replace(data: NotebookData, attachments: AttachmentRecord[] = []): SaveResult {
+  replace(input: NotebookData, attachments: AttachmentRecord[] = []): SaveResult {
     if (this.closed) return { ok: false, error: '数据库已经关闭。' };
+    const data: NotebookData = { ...input, settings: normalizeSettings(input.settings) };
     const savedAt = Date.now();
     const insertFolder = this.db.prepare('INSERT INTO folders(id, name, created_at) VALUES(?, ?, ?)');
     const insertNote = this.db.prepare(`
@@ -441,11 +458,13 @@ export class NotebookDatabase {
       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const upsertSettings = this.db.prepare(`
-      INSERT INTO settings(id, theme, sort_by, sort_dir) VALUES(1, ?, ?, ?)
+      INSERT INTO settings(id, theme, sort_by, sort_dir, font_family, font_size) VALUES(1, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         theme = excluded.theme,
         sort_by = excluded.sort_by,
-        sort_dir = excluded.sort_dir
+        sort_dir = excluded.sort_dir,
+        font_family = excluded.font_family,
+        font_size = excluded.font_size
     `);
 
     const insertAttachment = this.db.prepare(`
@@ -485,7 +504,13 @@ export class NotebookDatabase {
           attachment.createdAt,
         );
       }
-      upsertSettings.run(data.settings.theme, data.settings.sortBy, data.settings.sortDir);
+      upsertSettings.run(
+        data.settings.theme,
+        data.settings.sortBy,
+        data.settings.sortDir,
+        data.settings.fontFamily,
+        data.settings.fontSize,
+      );
       this.setMeta('notebook_version', '1');
       this.setMeta('initialized', '1');
       this.setMeta('attachments_migrated', '1');
