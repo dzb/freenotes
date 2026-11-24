@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Optional tag to publish, for example v1.0.1'
+        description: 'Optional tag to publish, for example v1.0.2'
         required: false
         type: string
   push:
@@ -93,6 +93,7 @@ jobs:
             ### 本期更新
 
             - 产品更名为 FreeNotes
+            - 主存储从整文件 JSON 切换为 SQLite；保留 JSON 导出、备份和恢复兼容
             - 支持完整 JSON 备份导出与整体恢复，用于跨平台迁移
             - 支持单条备忘录导出为自包含 HTML 和 PDF
             - macOS 使用系统原生红黄绿窗口按钮和原生应用菜单
@@ -101,10 +102,10 @@ jobs:
 
             ### 下载
 
-            - macOS Apple Silicon：`FreeNotes-1.0.1-arm64.dmg`
-            - macOS Intel：`FreeNotes-1.0.1-x64.dmg`
-            - Windows x64：`FreeNotes-1.0.1-x64.exe`
-            - Linux x86_64：`FreeNotes-1.0.1-x86_64.AppImage` / `FreeNotes-1.0.1-amd64.deb`
+            - macOS Apple Silicon：`FreeNotes-1.0.2-arm64.dmg`
+            - macOS Intel：`FreeNotes-1.0.2-x64.dmg`
+            - Windows x64：`FreeNotes-1.0.2-x64.exe`
+            - Linux x86_64：`FreeNotes-1.0.2-x86_64.AppImage` / `FreeNotes-1.0.2-amd64.deb`
 
             ### 说明
 

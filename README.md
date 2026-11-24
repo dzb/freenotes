@@ -45,14 +45,14 @@
 
 ## 下载
 
-当前版本为 **1.0.1**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
+当前版本为 **1.0.2**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
 
 | 平台 | 推荐产物 |
 | --- | --- |
-| macOS Apple Silicon | `FreeNotes-1.0.1-arm64.dmg` 或 `.zip` |
-| macOS Intel | `FreeNotes-1.0.1-x64.dmg` 或 `.zip` |
-| Windows x64 | `FreeNotes-1.0.1-x64.exe` |
-| Linux x86_64 | `FreeNotes-1.0.1-x86_64.AppImage` 或 `.deb` |
+| macOS Apple Silicon | `FreeNotes-1.0.2-arm64.dmg` 或 `.zip` |
+| macOS Intel | `FreeNotes-1.0.2-x64.dmg` 或 `.zip` |
+| Windows x64 | `FreeNotes-1.0.2-x64.exe` |
+| Linux x86_64 | `FreeNotes-1.0.2-x86_64.AppImage` 或 `.deb` |
 
 > macOS 构建当前未使用 Developer ID 证书签名和公证，首次打开时可能需要右键应用选择“打开”。Windows 未签名构建可能触发 SmartScreen 提示。
 
@@ -64,23 +64,23 @@ FreeNotes 使用 macOS 原生红黄绿窗口按钮和原生应用菜单；Window
 
 ### Windows
 
-下载 `FreeNotes-1.0.1-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
+下载 `FreeNotes-1.0.2-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
 
 ### Linux
 
 ```bash
 # Debian / Ubuntu
-sudo apt install ./FreeNotes-1.0.1-amd64.deb
+sudo apt install ./FreeNotes-1.0.2-amd64.deb
 
 # AppImage
-chmod +x FreeNotes-1.0.1-x86_64.AppImage
-./FreeNotes-1.0.1-x86_64.AppImage
+chmod +x FreeNotes-1.0.2-x86_64.AppImage
+./FreeNotes-1.0.2-x86_64.AppImage
 ```
 
 如果系统限制了 Electron 的 SUID sandbox，AppImage 可以显式关闭 Chromium sandbox（仅建议在信任的本地构建上这样做）：
 
 ```bash
-./FreeNotes-1.0.1-x86_64.AppImage --no-sandbox
+./FreeNotes-1.0.2-x86_64.AppImage --no-sandbox
 ```
 
 ## 从旧版 MacNotes 迁移
@@ -90,7 +90,7 @@ FreeNotes 首次启动时会检查旧版 MacNotes 的数据目录。如果新目
 - `notes-data.json`
 - `backups/`
 
-旧数据不会被移动或删除，方便回退。
+随后会把 `notes-data.json` 一次性导入新的 `notes.db`。旧 JSON 不会被移动或删除；迁移后 `notes.db` 是唯一主数据，如果要回退到 1.0.1，请先导出完整 JSON 备份。
 
 ## 使用
 
@@ -129,7 +129,8 @@ FreeNotes 首次启动时会检查旧版 MacNotes 的数据目录。如果新目
 
 主要文件：
 
-- 主数据：`notes-data.json`
+- 主数据：`notes.db`（SQLite，WAL 模式）
+- 旧版数据文件：首次迁移时保留 `notes-data.json`，之后不再作为主存储
 - 每日自动备份：`backups/notes-YYYY-MM-DD.json`，保留最近 10 份
 - 恢复前快照：`backups/pre-restore-YYYY-MM-DD-HHmmss.json`，保留最近 5 份
 
@@ -146,7 +147,7 @@ FreeNotes-backup-2026-11-23-1830.freenotes.json
 1. 校验备份格式
 2. 显示数据预览
 3. 确认后自动创建当前数据快照
-4. 原子写入恢复后的数据
+4. 在 SQLite 事务中重建恢复数据
 
 “从备份恢复…”也兼容直接选择 `notes-data.json` 或 `backups/notes-YYYY-MM-DD.json`。
 
@@ -167,7 +168,7 @@ FreeNotes-backup-2026-11-23-1830.freenotes.json
 - **Inter** 作为拉丁字体（本地打包），中文回退到系统字体
 - **macOS 原生窗口按钮和原生应用菜单**
 - **Windows/Linux 自绘标题栏**
-- **主进程**负责文件持久化：临时文件 + `fsync` + `rename` 的原子写入、关闭前同步 flush、每日备份和恢复前快照
+- **主进程**使用 Electron 内置 SQLite（`node:sqlite`）保存笔记：WAL + 事务 + 行级增量更新、关闭前同步 flush、每日 JSON 备份和恢复前快照。JSON 只用于导出、备份和恢复
 - **预加载脚本**通过 `contextBridge` 暴露窄接口；渲染进程没有 Node.js 访问权限，生产构建带 CSP
 
 全文搜索在渲染进程内存中执行：按空白拆分为多个“必须同时命中”的词，也支持 `"用引号包住的短语"`。对个人备忘录规模足够，且不需要维护额外的索引文件。
@@ -176,7 +177,7 @@ FreeNotes-backup-2026-11-23-1830.freenotes.json
 
 ```text
 src/
-  main/         Electron 主进程：窗口、IPC、数据文件、备份、菜单、HTML/PDF 导出
+  main/         Electron 主进程：窗口、IPC、SQLite 数据库、迁移、备份、菜单、HTML/PDF 导出
   preload/      contextBridge 暴露的安全 API
   renderer/
     components/ 界面组件（侧栏、列表、编辑器、工具条、弹窗）
@@ -186,7 +187,7 @@ src/
   shared/       主进程与渲染进程共享类型、备份校验、文件名处理
 build/          应用图标源文件、ICNS/ICO 和多尺寸图标
 docs/           截图
-tests/          搜索、日期、备份、导出和迁移单元测试
+tests/          搜索、日期、SQLite、备份、导出和迁移单元测试
 .github/        macOS / Windows / Linux 构建 workflow
 ```
 

@@ -17,6 +17,7 @@ import { isNotebookData, parseBackupContent } from '../shared/backup';
 import { migrateLegacyData } from './migrateData';
 import { installApplicationMenu } from './menu';
 import { exportBackupFile, exportNoteHtmlFile, exportNotePdfFile } from './files';
+import { NotebookDatabase } from './database';
 
 app.setName('FreeNotes');
 
@@ -35,10 +36,11 @@ if (customDataDir) {
 
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 let mainWindow: BrowserWindow | null = null;
+let database: NotebookDatabase | null = null;
 let dataPath = '';
+let legacyJsonPath = '';
 let backupDir = '';
 let backupDay: string | null = null;
-let writeGeneration = 0;
 let startupError: Error | null = null;
 
 const gotLock = app.requestSingleInstanceLock();
@@ -57,7 +59,7 @@ function restoreStamp(): string {
   return `${todayKey()}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
-function setupPaths() {
+async function setupPaths() {
   const userData = app.getPath('userData');
   const legacyUserData =
     customLegacyDataDir !== undefined
@@ -74,136 +76,104 @@ function setupPaths() {
     throw new Error('旧版 MacNotes 数据迁移失败，请检查数据目录权限。');
   }
 
-  dataPath = path.join(userData, 'notes-data.json');
+  dataPath = path.join(userData, 'notes.db');
+  legacyJsonPath = path.join(userData, 'notes-data.json');
   backupDir = path.join(userData, 'backups');
   fs.mkdirSync(userData, { recursive: true });
   fs.mkdirSync(backupDir, { recursive: true });
+  database = new NotebookDatabase(dataPath);
+
+  if (!database.isInitialized() && fs.existsSync(legacyJsonPath)) {
+    const stat = await fsp.stat(legacyJsonPath);
+    if (!stat.isFile() || stat.size > MAX_BACKUP_BYTES) {
+      throw new Error('旧版 notes-data.json 无效或超过 120MB 限制。');
+    }
+    const raw = await fsp.readFile(legacyJsonPath, 'utf8');
+    let imported: NotebookData;
+    try {
+      imported = parseBackupContent(raw);
+    } catch (error) {
+      console.error('[freenotes] Failed to parse legacy JSON data:', error);
+      throw new Error('旧版 notes-data.json 无法解析，已保留原文件。');
+    }
+    const result = database.replace(imported);
+    if (!result.ok) throw new Error(result.error ?? '旧版数据导入 SQLite 失败。');
+    console.info('[freenotes] Imported legacy notes-data.json into notes.db');
+  }
 }
 
 async function readData(): Promise<NotebookData | null> {
-  try {
-    const raw = await fsp.readFile(dataPath, 'utf8');
-    const parsed: unknown = JSON.parse(raw);
-    if (!isNotebookData(parsed)) {
-      throw new Error('数据格式不正确');
-    }
-    return parsed;
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT') return null;
-    console.error('[freenotes] Failed to read data file:', error);
-    try {
-      const corruptPath = path.join(app.getPath('userData'), `notes-data.corrupt-${Date.now()}.json`);
-      await fsp.copyFile(dataPath, corruptPath);
-      console.error('[freenotes] Preserved unreadable data at', corruptPath);
-    } catch {
-      // Keep the original file untouched if the safety copy fails.
-      return null;
-    }
-    return null;
-  }
+  if (!database) throw new Error('本地数据库尚未初始化。');
+  return database.load();
 }
 
-async function maybeBackupExistingFile(): Promise<void> {
+function maybeBackupExistingFile(): void {
   const day = todayKey();
   if (backupDay === day) return;
   backupDay = day;
-  try {
-    await fsp.access(dataPath);
-  } catch {
-    return;
-  }
+  const snapshot = database?.snapshot();
+  if (!snapshot) return;
   try {
     const backupPath = path.join(backupDir, `notes-${day}.json`);
-    await fsp.copyFile(dataPath, backupPath);
-    const entries = (await fsp.readdir(backupDir))
+    const tmpPath = `${backupPath}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(snapshot), { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(tmpPath, backupPath);
+    const entries = fs
+      .readdirSync(backupDir)
       .filter((name) => /^notes-\d{4}-\d{2}-\d{2}\.json$/.test(name))
       .sort()
       .reverse();
-    await Promise.all(entries.slice(10).map((name) => fsp.rm(path.join(backupDir, name), { force: true })));
+    for (const name of entries.slice(10)) fs.rmSync(path.join(backupDir, name), { force: true });
   } catch (error) {
     console.error('[freenotes] Backup failed:', error);
   }
 }
 
 async function writeData(data: unknown): Promise<SaveResult> {
+  if (!database) return { ok: false, error: '本地数据库尚未初始化。' };
   if (!isNotebookData(data)) {
     return { ok: false, error: '数据格式无效，已取消保存。' };
   }
-  const generation = ++writeGeneration;
-  const json = JSON.stringify(data);
-  if (json.length > MAX_BACKUP_BYTES) {
+  if (JSON.stringify(data).length > MAX_BACKUP_BYTES) {
     return { ok: false, error: '数据文件超过 120MB，保存已取消。' };
   }
 
-  await maybeBackupExistingFile();
-  const tmpPath = `${dataPath}.${process.pid}.${generation}.tmp`;
-  try {
-    const handle = await fsp.open(tmpPath, 'w', 0o600);
-    try {
-      await handle.writeFile(json, 'utf8');
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
-    if (generation !== writeGeneration) {
-      await fsp.rm(tmpPath, { force: true });
-      return { ok: true, savedAt: Date.now() };
-    }
-    await fsp.rename(tmpPath, dataPath);
-    return { ok: true, savedAt: Date.now() };
-  } catch (error) {
-    await fsp.rm(tmpPath, { force: true }).catch(() => undefined);
-    console.error('[freenotes] Failed to save data:', error);
-    return { ok: false, error: '写入本地文件失败。' };
-  }
+  maybeBackupExistingFile();
+  return database.save(data);
 }
 
 function writeDataSync(data: unknown): SaveResult {
+  if (!database) return { ok: false, error: '本地数据库尚未初始化。' };
   if (!isNotebookData(data)) {
     return { ok: false, error: '数据格式无效，已取消保存。' };
   }
-  const generation = ++writeGeneration;
-  const json = JSON.stringify(data);
-  if (json.length > MAX_BACKUP_BYTES) {
+  if (JSON.stringify(data).length > MAX_BACKUP_BYTES) {
     return { ok: false, error: '数据文件超过 120MB，保存已取消。' };
   }
-  const tmpPath = `${dataPath}.${process.pid}.${generation}.flush.tmp`;
+  return database.save(data);
+}
+
+function createRestoreSnapshot(data: NotebookData): void {
+  const snapshotPath = path.join(backupDir, `pre-restore-${restoreStamp()}.json`);
+  const tmpPath = `${snapshotPath}.${process.pid}.tmp`;
   try {
-    fs.writeFileSync(tmpPath, json, { encoding: 'utf8', mode: 0o600 });
-    if (generation !== writeGeneration) {
-      fs.rmSync(tmpPath, { force: true });
-      return { ok: true, savedAt: Date.now() };
-    }
-    fs.renameSync(tmpPath, dataPath);
-    return { ok: true, savedAt: Date.now() };
+    fs.writeFileSync(tmpPath, JSON.stringify(data), { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(tmpPath, snapshotPath);
   } catch (error) {
     try {
       fs.rmSync(tmpPath, { force: true });
     } catch {
       // ignore cleanup failures
     }
-    console.error('[freenotes] Failed to flush data:', error);
-    return { ok: false, error: '写入本地文件失败。' };
-  }
-}
-
-async function createRestoreSnapshot(data: NotebookData): Promise<void> {
-  const snapshotPath = path.join(backupDir, `pre-restore-${restoreStamp()}.json`);
-  const tmpPath = `${snapshotPath}.${process.pid}.tmp`;
-  try {
-    await fsp.writeFile(tmpPath, JSON.stringify(data), { mode: 0o600 });
-    await fsp.rename(tmpPath, snapshotPath);
-  } catch (error) {
-    await fsp.rm(tmpPath, { force: true }).catch(() => undefined);
     throw error;
   }
 
-  const entries = (await fsp.readdir(backupDir))
+  const entries = fs
+    .readdirSync(backupDir)
     .filter((name) => /^pre-restore-\d{4}-\d{2}-\d{2}-\d{6}\.json$/.test(name))
     .sort()
     .reverse();
-  await Promise.all(entries.slice(MAX_RESTORE_POINTS).map((name) => fsp.rm(path.join(backupDir, name), { force: true })));
+  for (const name of entries.slice(MAX_RESTORE_POINTS)) fs.rmSync(path.join(backupDir, name), { force: true });
 }
 
 async function restoreBackup(currentData: NotebookData): Promise<RestoreResult> {
@@ -252,8 +222,9 @@ async function restoreBackup(currentData: NotebookData): Promise<RestoreResult> 
         });
     if (confirmation.response !== 1) return { ok: false, canceled: true };
 
-    await createRestoreSnapshot(currentData);
-    const saved = await writeData(imported);
+    if (!database) return { ok: false, error: '本地数据库尚未初始化。' };
+    createRestoreSnapshot(currentData);
+    const saved = database.replace(imported);
     if (!saved.ok) return { ok: false, error: saved.error ?? '恢复备份失败。' };
     return { ok: true, data: imported };
   } catch (error) {
@@ -471,9 +442,9 @@ if (gotLock) {
     mainWindow.focus();
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     try {
-      setupPaths();
+      await setupPaths();
     } catch (error) {
       startupError = error instanceof Error ? error : new Error('无法初始化数据目录。');
     }
@@ -489,6 +460,11 @@ if (gotLock) {
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
+  });
+
+  app.on('will-quit', () => {
+    database?.close();
+    database = null;
   });
 
   app.on('window-all-closed', () => {

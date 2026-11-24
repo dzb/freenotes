@@ -9,7 +9,7 @@ import type {
 } from '../../shared/types';
 
 const STORAGE_KEY = 'macnotes.data.v1';
-const PREVIEW_VERSION = '1.0.1-preview';
+const PREVIEW_VERSION = '1.0.2-preview';
 const browserPlatform: AppPlatform = 'browser';
 
 function readBrowserData(): NotebookData | null {
