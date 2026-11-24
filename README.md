@@ -45,14 +45,14 @@
 
 ## 下载
 
-当前版本为 **1.0.10**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
+当前版本为 **1.0.11**，可从 [GitHub Releases](https://github.com/dzb/freenotes/releases/latest) 下载。
 
 | 平台 | 推荐产物 |
 | --- | --- |
-| macOS Apple Silicon | `FreeNotes-1.0.10-arm64.dmg` 或 `.zip` |
-| macOS Intel | `FreeNotes-1.0.10-x64.dmg` 或 `.zip` |
-| Windows x64 | `FreeNotes-1.0.10-x64.exe` |
-| Linux x86_64 | `FreeNotes-1.0.10-x86_64.AppImage`、`.deb` 或 `.rpm` |
+| macOS Apple Silicon | `FreeNotes-1.0.11-arm64.dmg` 或 `.zip` |
+| macOS Intel | `FreeNotes-1.0.11-x64.dmg` 或 `.zip` |
+| Windows x64 | `FreeNotes-1.0.11-x64.exe` |
+| Linux x86_64 | `FreeNotes-1.0.11-x86_64.AppImage`、`.deb` 或 `.rpm` |
 
 > macOS 构建使用 ad-hoc 签名，但没有 Developer ID 证书和 notarization。首次打开仍可能触发 Gatekeeper 提示；如果系统显示“无法验证”，可在“系统设置 → 隐私与安全性”中选择“仍要打开”。Windows 未签名构建可能触发 SmartScreen 提示。
 
@@ -74,7 +74,7 @@ FreeNotes 使用 macOS 原生红黄绿窗口按钮和原生应用菜单；Window
 
 ### Windows
 
-下载 `FreeNotes-1.0.10-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
+下载 `FreeNotes-1.0.11-x64.exe`，运行 NSIS 安装程序。安装时可选择目标目录。
 
 ### Linux
 
@@ -82,20 +82,20 @@ RPM 包可以被 Fedora 自带软件中心或 PackageKit 打开安装，也可�
 
 ```bash
 # Fedora / RHEL
-sudo dnf install ./FreeNotes-1.0.10-x86_64.rpm
+sudo dnf install ./FreeNotes-1.0.11-x86_64.rpm
 
 # Debian / Ubuntu
-sudo apt install ./FreeNotes-1.0.10-amd64.deb
+sudo apt install ./FreeNotes-1.0.11-amd64.deb
 
 # AppImage
-chmod +x FreeNotes-1.0.10-x86_64.AppImage
-./FreeNotes-1.0.10-x86_64.AppImage
+chmod +x FreeNotes-1.0.11-x86_64.AppImage
+./FreeNotes-1.0.11-x86_64.AppImage
 ```
 
 如果系统限制了 Electron 的 SUID sandbox，AppImage 可以显式关闭 Chromium sandbox（仅建议在信任的本地构建上这样做）：
 
 ```bash
-./FreeNotes-1.0.10-x86_64.AppImage --no-sandbox
+./FreeNotes-1.0.11-x86_64.AppImage --no-sandbox
 ```
 
 ## 从旧版 MacNotes 迁移

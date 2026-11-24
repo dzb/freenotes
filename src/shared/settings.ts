@@ -1,7 +1,7 @@
 import type { FontFamily, FontSize, NotebookSettings } from './types';
 
 export const FONT_FAMILIES: FontFamily[] = ['system', 'serif', 'mono'];
-export const FONT_SIZES: FontSize[] = [13, 14, 15, 16, 18];
+export const FONT_SIZES: FontSize[] = [11, 13, 14, 15, 16];
 
 export const DEFAULT_SETTINGS: NotebookSettings = {
   theme: 'system',

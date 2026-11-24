@@ -56,7 +56,7 @@ const FONT_FAMILY_OPTIONS = [
   { value: 'mono', label: '等宽' },
 ] as const;
 
-const FONT_SIZE_OPTIONS = [13, 14, 15, 16, 18] as const;
+const FONT_SIZE_OPTIONS = [11, 13, 14, 15, 16] as const;
 
 export default function App() {
   const notebook = useNotebook();

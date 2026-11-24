@@ -15,8 +15,8 @@ describe('standalone note HTML export', () => {
   });
 
   it('applies the selected note typography to shared HTML', () => {
-    const html = buildStandaloneNoteHtml('字体', '<p>正文</p>', { fontFamily: 'serif', fontSize: 18 });
-    expect(html).toContain('font-size: 18px');
+    const html = buildStandaloneNoteHtml('字体', '<p>正文</p>', { fontFamily: 'serif', fontSize: 16 });
+    expect(html).toContain('font-size: 16px');
     expect(html).toContain('Noto Serif CJK SC');
   });
 

@@ -2,7 +2,7 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 export type SortKey = 'updatedAt' | 'createdAt' | 'title';
 export type SortDirection = 'asc' | 'desc';
 export type FontFamily = 'system' | 'serif' | 'mono';
-export type FontSize = 13 | 14 | 15 | 16 | 18;
+export type FontSize = 11 | 13 | 14 | 15 | 16;
 export type AppPlatform = 'darwin' | 'win32' | 'linux' | 'browser';
 
 export interface Folder {
