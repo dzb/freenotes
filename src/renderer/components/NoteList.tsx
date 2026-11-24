@@ -354,7 +354,7 @@ function NoteRow({
       <p className="note-row-preview">{getNotePreview(note)}</p>
       {showFolder && folderName ? (
         <div className="note-row-meta">
-          <FolderClosed size={11} strokeWidth={1.8} />
+          <FolderClosed size={10} strokeWidth={1.8} />
           <span>{folderName}</span>
         </div>
       ) : null}
