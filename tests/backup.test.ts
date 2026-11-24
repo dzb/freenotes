@@ -27,7 +27,7 @@ describe('backup validation', () => {
     const raw = JSON.stringify({
       format: 'freenotes-backup',
       formatVersion: 1,
-      appVersion: '1.0.5',
+      appVersion: '1.0.6',
       exportedAt: 123,
       data,
     });

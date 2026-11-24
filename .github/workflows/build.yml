@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Optional tag to publish, for example v1.0.5'
+        description: 'Optional tag to publish, for example v1.0.6'
         required: false
         type: string
   push:
@@ -34,10 +34,11 @@ jobs:
         include:
           - name: linux-x64
             os: ubuntu-22.04
-            command: npx electron-builder --linux AppImage deb --x64 --publish never
+            command: npx electron-builder --linux AppImage deb rpm --x64 --publish never
             files: |
               release/*.AppImage
               release/*.deb
+              release/*.rpm
           - name: windows-x64
             os: windows-latest
             command: npx electron-builder --win nsis --x64 --publish never
@@ -100,15 +101,16 @@ jobs:
             - 单条 HTML/PDF 导出仍保持自包含
             - 兼容旧版 JSON 备份恢复
             - 搜索关闭时不再构建索引，编辑时只更新变化的单条搜索缓存
+            - Linux 增加 Fedora/RHEL 可安装的 RPM 发行包
             - macOS 构建使用 ad-hoc 签名，修复无签名 App Bundle 被误判为已损坏的问题
             - macOS 使用系统原生红黄绿窗口按钮和原生应用菜单
 
             ### 下载
 
-            - macOS Apple Silicon：`FreeNotes-1.0.5-arm64.dmg`
-            - macOS Intel：`FreeNotes-1.0.5-x64.dmg`
-            - Windows x64：`FreeNotes-1.0.5-x64.exe`
-            - Linux x86_64：`FreeNotes-1.0.5-x86_64.AppImage` / `FreeNotes-1.0.5-amd64.deb`
+            - macOS Apple Silicon：`FreeNotes-1.0.6-arm64.dmg`
+            - macOS Intel：`FreeNotes-1.0.6-x64.dmg`
+            - Windows x64：`FreeNotes-1.0.6-x64.exe`
+            - Linux x86_64：`FreeNotes-1.0.6-x86_64.AppImage` / `FreeNotes-1.0.6-amd64.deb` / `FreeNotes-1.0.6-x86_64.rpm`
 
             ### 说明
 
