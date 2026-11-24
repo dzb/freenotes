@@ -37,7 +37,7 @@ import type { SaveState } from '../hooks/useNotebook';
 import { api } from '../lib/api';
 import { copyText } from '../lib/clipboard';
 import { countWords, formatClock, formatFullDate } from '../lib/format';
-import { imageFileToDataUrl } from '../lib/image';
+import { prepareImageAttachment } from '../lib/image';
 import { useSearchHighlights } from '../hooks/useSearchHighlights';
 import { buildStandaloneNoteHtml } from '../lib/noteExport';
 import { displayNoteTitle } from '../lib/search';
@@ -301,8 +301,10 @@ function NoteEditor({
     async (file: File) => {
       if (!editor) return;
       try {
-        const source = await imageFileToDataUrl(file);
-        editor.chain().focus().setImage({ src: source, alt: file.name }).run();
+        const prepared = await prepareImageAttachment(file);
+        const saved = await api.saveAttachment(prepared.fileName, prepared.mimeType, prepared.data);
+        if (!saved.ok || !saved.url) throw new Error(saved.error ?? '保存图片附件失败');
+        editor.chain().focus().setImage({ src: saved.url, alt: file.name }).run();
       } catch (error) {
         notifyRef.current(error instanceof Error ? error.message : '插入图片失败');
       }

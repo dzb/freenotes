@@ -27,7 +27,7 @@ describe('backup validation', () => {
     const raw = JSON.stringify({
       format: 'freenotes-backup',
       formatVersion: 1,
-      appVersion: '1.0.2',
+      appVersion: '1.0.3',
       exportedAt: 123,
       data,
     });
@@ -38,12 +38,25 @@ describe('backup validation', () => {
     expect(extractNotebookData(data)).toEqual(data);
   });
 
-  it('rejects unsupported envelope versions', () => {
+  it('directs backup manifests to their ZIP bundle', () => {
     expect(() =>
       extractNotebookData({
         format: 'freenotes-backup',
         formatVersion: 2,
         appVersion: '2.0.0',
+        exportedAt: 1,
+        data,
+        attachments: [],
+      }),
+    ).toThrow('请选择 .freenotes.zip 完整备份');
+  });
+
+  it('rejects unsupported future envelope versions', () => {
+    expect(() =>
+      extractNotebookData({
+        format: 'freenotes-backup',
+        formatVersion: 3,
+        appVersion: '3.0.0',
         exportedAt: 1,
         data,
       }),

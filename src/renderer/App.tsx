@@ -25,7 +25,7 @@ import { useTheme } from './hooks/useTheme';
 import { api } from './lib/api';
 import { createFolder } from './lib/data';
 import { applyNotePatch, createNote, sortNotes } from './lib/note';
-import { displayNoteTitle, searchNotes } from './lib/search';
+import { buildSearchIndex, displayNoteTitle, searchNotesFromIndex } from './lib/search';
 import type { View } from './lib/view';
 import { TitleBar } from './components/TitleBar';
 import { Sidebar } from './components/Sidebar';
@@ -112,10 +112,12 @@ export default function App() {
     return sortNotes(active, data.settings.sortBy, data.settings.sortDir);
   }, [data]);
 
+  const searchIndex = useMemo(() => buildSearchIndex(data?.notes ?? []), [data?.notes]);
+
   const searchedResults = useMemo(() => {
     if (!data || !searchActive) return null;
-    return searchNotes(data.notes, searchQuery);
-  }, [data, searchActive, searchQuery]);
+    return searchNotesFromIndex(searchIndex, searchQuery);
+  }, [data, searchActive, searchQuery, searchIndex]);
 
   const notesForView = useMemo(() => {
     if (!data) return [];

@@ -37,12 +37,31 @@ export interface NotebookData {
   settings: NotebookSettings;
 }
 
+export interface AttachmentRecord {
+  id: string;
+  relativePath: string;
+  fileName: string;
+  mimeType: string;
+  byteSize: number;
+  sha256: string;
+  createdAt: number;
+}
+
 export interface FreeNotesBackup {
   format: 'freenotes-backup';
   formatVersion: 1;
   appVersion: string;
   exportedAt: number;
   data: NotebookData;
+}
+
+export interface FreeNotesBackupV2 {
+  format: 'freenotes-backup';
+  formatVersion: 2;
+  appVersion: string;
+  exportedAt: number;
+  data: NotebookData;
+  attachments: AttachmentRecord[];
 }
 
 export interface LoadResult {
@@ -71,6 +90,13 @@ export interface RestoreResult {
   error?: string;
 }
 
+export interface SaveAttachmentResult {
+  ok: boolean;
+  attachment?: AttachmentRecord;
+  url?: string;
+  error?: string;
+}
+
 export interface AppInfo {
   version: string;
   dataPath: string;
@@ -96,6 +122,11 @@ export interface MacNotesApi {
   restoreBackup: (currentData: NotebookData) => Promise<RestoreResult>;
   exportNoteHtml: (html: string, suggestedName: string) => Promise<FileExportResult>;
   exportNotePdf: (html: string, suggestedName: string) => Promise<FileExportResult>;
+  saveAttachment: (
+    fileName: string,
+    mimeType: string,
+    data: ArrayBuffer,
+  ) => Promise<SaveAttachmentResult>;
   onMenuCommand: (handler: (command: MenuCommand) => void) => () => void;
   minimize: () => void;
   toggleMaximize: () => void;

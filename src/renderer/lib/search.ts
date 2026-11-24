@@ -13,6 +13,17 @@ interface ParsedQuery {
   normalizedTokens: string[];
 }
 
+export interface SearchIndexEntry {
+  note: Note;
+  title: string;
+  normalizedTitle: string;
+  normalizedBody: string;
+  collapsedBody: string;
+  normalizedCollapsedBody: string;
+}
+
+export type SearchIndex = Map<string, SearchIndexEntry>;
+
 const normalize = (value: string) =>
   value
     .normalize('NFKD')
@@ -64,15 +75,28 @@ export function displayNoteTitle(note: Note): string {
   return firstLine ? firstLine.slice(0, 80) : '新建备忘录';
 }
 
-function collapsedBody(note: Note): string {
-  return notePlainText(note).replace(/\s+/g, ' ').trim();
+export function buildSearchIndex(notes: Note[]): SearchIndex {
+  const index: SearchIndex = new Map();
+  for (const note of notes) {
+    if (note.deletedAt !== null) continue;
+    const title = displayNoteTitle(note);
+    const body = notePlainText(note);
+    const collapsedBody = body.replace(/\s+/g, ' ').trim();
+    index.set(note.id, {
+      note,
+      title,
+      normalizedTitle: normalize(title),
+      normalizedBody: normalize(body),
+      collapsedBody,
+      normalizedCollapsedBody: normalize(collapsedBody),
+    });
+  }
+  return index;
 }
 
-function buildSnippet(note: Note, normalizedTokens: string[]): string {
-  const body = collapsedBody(note);
+function buildSnippet(entry: SearchIndexEntry, normalizedTokens: string[]): string {
+  const { collapsedBody: body, normalizedCollapsedBody: lowerBody } = entry;
   if (!body) return '空白备忘录';
-
-  const lowerBody = normalize(body);
   let matchIndex = -1;
   let matchLength = 0;
   for (const token of normalizedTokens) {
@@ -106,18 +130,14 @@ function buildSnippet(note: Note, normalizedTokens: string[]): string {
   return `${prefix}${body.slice(start, end).trim()}${suffix}`;
 }
 
-export function searchNotes(notes: Note[], query: string): SearchResult[] {
-  const { displayTokens, normalizedTokens } = parseSearchQuery(query);
+export function searchNotesFromIndex(index: SearchIndex, query: string): SearchResult[] {
+  const { normalizedTokens } = parseSearchQuery(query);
   if (normalizedTokens.length === 0) return [];
 
   const results: SearchResult[] = [];
 
-  for (const note of notes) {
-    if (note.deletedAt !== null) continue;
-
-    const title = displayNoteTitle(note);
-    const normalizedTitle = normalize(title);
-    const normalizedBody = normalize(notePlainText(note));
+  for (const entry of index.values()) {
+    const { note, normalizedTitle, normalizedBody } = entry;
     const normalizedAll = `${normalizedTitle}\n${normalizedBody}`;
     if (!normalizedTokens.every((token) => normalizedAll.includes(token))) continue;
 
@@ -139,7 +159,7 @@ export function searchNotes(notes: Note[], query: string): SearchResult[] {
       note,
       score,
       matchedTitle,
-      snippet: buildSnippet(note, normalizedTokens),
+      snippet: buildSnippet(entry, normalizedTokens),
     });
   }
 
@@ -147,6 +167,10 @@ export function searchNotes(notes: Note[], query: string): SearchResult[] {
     if (b.score !== a.score) return b.score - a.score;
     return b.note.updatedAt - a.note.updatedAt;
   });
+}
+
+export function searchNotes(notes: Note[], query: string, preparedIndex?: SearchIndex): SearchResult[] {
+  return searchNotesFromIndex(preparedIndex ?? buildSearchIndex(notes), query);
 }
 
 export function highlightTerms(query: string): string[] {

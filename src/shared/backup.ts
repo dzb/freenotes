@@ -71,6 +71,9 @@ export function extractNotebookData(value: unknown): NotebookData {
       throw new Error('这不是 FreeNotes 备份文件。');
     }
     if (value.formatVersion !== 1) {
+      if (value.formatVersion === 2) {
+        throw new Error('这是备份包内的索引文件，请选择 .freenotes.zip 完整备份。');
+      }
       throw new Error('备份格式版本不受支持，请升级 FreeNotes 后再试。');
     }
     if (!isNotebookData(value.data)) {

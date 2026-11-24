@@ -30,6 +30,8 @@ const api: MacNotesApi = {
     ipcRenderer.invoke('note:export-html', html, suggestedName),
   exportNotePdf: (html: string, suggestedName: string) =>
     ipcRenderer.invoke('note:export-pdf', html, suggestedName),
+  saveAttachment: (fileName: string, mimeType: string, data: ArrayBuffer) =>
+    ipcRenderer.invoke('attachment:save', fileName, mimeType, data),
   onMenuCommand: (handler: (command: MenuCommand) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, command: unknown) => {
       if (

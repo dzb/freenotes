@@ -1,8 +1,8 @@
 {
   "name": "macnotes",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "private": true,
-  "description": "一款本地优先的 macOS 风格笔记应用，支持全文搜索、完整备份与单条导出。",
+  "description": "一款本地优先的 macOS 风格笔记应用，支持 SQLite 存储、全文搜索、附件备份与单条导出。",
   "desktopName": "macnotes.desktop",
   "author": {
     "name": "dzb",
@@ -47,7 +47,6 @@
     "dist:mac": "npm run build && electron-builder --mac dmg zip",
     "dist:win": "npm run build && electron-builder --win nsis"
   },
-  "dependencies": {},
   "devDependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "@tiptap/extension-highlight": "^3.35.0",
@@ -65,6 +64,8 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/yauzl": "^3.4.0",
+    "@types/yazl": "^3.3.1",
     "@vitejs/plugin-react": "^6.3.0",
     "electron": "^45.4.1",
     "electron-builder": "^26.18.0",
@@ -75,7 +76,9 @@
     "react-dom": "^19.3.1",
     "typescript": "^5.9.3",
     "vite": "^8.3.8",
-    "vitest": "^5.1.1"
+    "vitest": "^5.1.1",
+    "yauzl": "^3.4.0",
+    "yazl": "^3.3.1"
   },
   "build": {
     "appId": "app.macnotes.local",

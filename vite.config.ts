@@ -13,7 +13,7 @@ export default defineConfig({
           "default-src 'self'",
           "script-src 'self'",
           "style-src 'self' 'unsafe-inline'",
-          "img-src 'self' data: blob:",
+          "img-src 'self' data: blob: freenotes-asset:",
           "font-src 'self' data:",
           "media-src 'self' data: blob:",
           "connect-src 'self'",

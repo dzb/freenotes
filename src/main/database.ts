@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { Note, NotebookData, NotebookSettings, SaveResult } from '../shared/types';
+import type { AttachmentRecord, Note, NotebookData, NotebookSettings, SaveResult } from '../shared/types';
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const DEFAULT_SETTINGS: NotebookSettings = {
   theme: 'system',
   sortBy: 'updatedAt',
@@ -38,6 +38,16 @@ interface MetaRow {
   value: string;
 }
 
+interface AttachmentRow {
+  id: string;
+  relative_path: string;
+  file_name: string;
+  mime_type: string;
+  byte_size: number;
+  sha256: string;
+  created_at: number;
+}
+
 const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
@@ -69,6 +79,19 @@ const SCHEMA_SQL = `
     sort_dir TEXT NOT NULL
   ) STRICT;
 
+  CREATE TABLE IF NOT EXISTS attachments (
+    id TEXT PRIMARY KEY,
+    relative_path TEXT NOT NULL UNIQUE,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    byte_size INTEGER NOT NULL,
+    sha256 TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS idx_attachments_path
+    ON attachments(relative_path);
+
   CREATE INDEX IF NOT EXISTS idx_notes_folder
     ON notes(folder_id);
 
@@ -87,6 +110,21 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_notes_deleted
     ON notes(deleted_at DESC)
     WHERE deleted_at IS NOT NULL;
+`;
+
+const ATTACHMENTS_SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS attachments (
+    id TEXT PRIMARY KEY,
+    relative_path TEXT NOT NULL UNIQUE,
+    file_name TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    byte_size INTEGER NOT NULL,
+    sha256 TEXT NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE INDEX IF NOT EXISTS idx_attachments_path
+    ON attachments(relative_path);
 `;
 
 function folderChanged(previous: NotebookData['folders'][number] | undefined, next: NotebookData['folders'][number]): boolean {
@@ -139,16 +177,23 @@ export class NotebookDatabase {
     if (version > SCHEMA_VERSION) {
       throw new Error('数据库版本高于当前 FreeNotes 支持的版本。');
     }
-    if (version === 0) {
-      this.db.exec('BEGIN IMMEDIATE;');
-      try {
+    if (version === SCHEMA_VERSION) return;
+
+    this.db.exec('BEGIN IMMEDIATE;');
+    try {
+      if (version === 0) {
         this.db.exec(SCHEMA_SQL);
         this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION};`);
-        this.db.exec('COMMIT;');
-      } catch (error) {
-        this.db.exec('ROLLBACK;');
-        throw error;
+        this.setMeta('attachments_migrated', '1');
+      } else if (version === 1) {
+        this.db.exec(ATTACHMENTS_SCHEMA_SQL);
+        this.db.exec(`PRAGMA user_version = ${SCHEMA_VERSION};`);
+        this.setMeta('attachments_migrated', '0');
       }
+      this.db.exec('COMMIT;');
+    } catch (error) {
+      this.db.exec('ROLLBACK;');
+      throw error;
     }
   }
 
@@ -172,6 +217,81 @@ export class NotebookDatabase {
 
   isInitialized(): boolean {
     return this.getMeta('initialized') === '1';
+  }
+
+  needsAttachmentMigration(): boolean {
+    return this.getMeta('attachments_migrated') !== '1';
+  }
+
+  markAttachmentMigrationComplete(): void {
+    this.setMeta('attachments_migrated', '1');
+  }
+
+  getAllAttachments(): AttachmentRecord[] {
+    const rows = this.db
+      .prepare('SELECT id, relative_path, file_name, mime_type, byte_size, sha256, created_at FROM attachments ORDER BY created_at ASC, id ASC')
+      .all() as unknown as AttachmentRow[];
+    return rows.map((row) => ({
+      id: row.id,
+      relativePath: row.relative_path,
+      fileName: row.file_name,
+      mimeType: row.mime_type,
+      byteSize: Number(row.byte_size),
+      sha256: row.sha256,
+      createdAt: Number(row.created_at),
+    }));
+  }
+
+  saveAttachments(attachments: AttachmentRecord[]): void {
+    if (attachments.length === 0) return;
+    const upsert = this.db.prepare(`
+      INSERT INTO attachments(id, relative_path, file_name, mime_type, byte_size, sha256, created_at)
+      VALUES(?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        relative_path = excluded.relative_path,
+        file_name = excluded.file_name,
+        mime_type = excluded.mime_type,
+        byte_size = excluded.byte_size,
+        sha256 = excluded.sha256,
+        created_at = excluded.created_at
+    `);
+    this.db.exec('BEGIN IMMEDIATE;');
+    try {
+      for (const attachment of attachments) {
+        upsert.run(
+          attachment.id,
+          attachment.relativePath,
+          attachment.fileName,
+          attachment.mimeType,
+          attachment.byteSize,
+          attachment.sha256,
+          attachment.createdAt,
+        );
+      }
+      this.db.exec('COMMIT;');
+    } catch (error) {
+      this.db.exec('ROLLBACK;');
+      throw error;
+    }
+  }
+
+  createSnapshot(targetPath: string): void {
+    if (this.closed) throw new Error('数据库已经关闭。');
+    const tempPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
+    try {
+      fs.rmSync(tempPath, { force: true });
+      const escapedPath = tempPath.replaceAll("'", "''");
+      this.db.exec(`VACUUM INTO '${escapedPath}';`);
+      fs.rmSync(targetPath, { force: true });
+      fs.renameSync(tempPath, targetPath);
+    } catch (error) {
+      try {
+        fs.rmSync(tempPath, { force: true });
+      } catch {
+        // ignore cleanup failures
+      }
+      throw error;
+    }
   }
 
   private readNotebook(): NotebookData | null {
@@ -312,7 +432,7 @@ export class NotebookDatabase {
     }
   }
 
-  replace(data: NotebookData): SaveResult {
+  replace(data: NotebookData, attachments: AttachmentRecord[] = []): SaveResult {
     if (this.closed) return { ok: false, error: '数据库已经关闭。' };
     const savedAt = Date.now();
     const insertFolder = this.db.prepare('INSERT INTO folders(id, name, created_at) VALUES(?, ?, ?)');
@@ -328,10 +448,16 @@ export class NotebookDatabase {
         sort_dir = excluded.sort_dir
     `);
 
+    const insertAttachment = this.db.prepare(`
+      INSERT INTO attachments(id, relative_path, file_name, mime_type, byte_size, sha256, created_at)
+      VALUES(?, ?, ?, ?, ?, ?, ?)
+    `);
+
     this.db.exec('BEGIN IMMEDIATE;');
     try {
       this.db.exec('DELETE FROM notes;');
       this.db.exec('DELETE FROM folders;');
+      this.db.exec('DELETE FROM attachments;');
       for (const folder of data.folders) {
         insertFolder.run(folder.id, folder.name, folder.createdAt);
       }
@@ -348,9 +474,21 @@ export class NotebookDatabase {
           note.deletedAt,
         );
       }
+      for (const attachment of attachments) {
+        insertAttachment.run(
+          attachment.id,
+          attachment.relativePath,
+          attachment.fileName,
+          attachment.mimeType,
+          attachment.byteSize,
+          attachment.sha256,
+          attachment.createdAt,
+        );
+      }
       upsertSettings.run(data.settings.theme, data.settings.sortBy, data.settings.sortDir);
       this.setMeta('notebook_version', '1');
       this.setMeta('initialized', '1');
+      this.setMeta('attachments_migrated', '1');
       this.setMeta('last_saved_at', String(savedAt));
       this.db.exec('COMMIT;');
       this.lastSaved = data;

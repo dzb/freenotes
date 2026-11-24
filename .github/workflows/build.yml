@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Optional tag to publish, for example v1.0.2'
+        description: 'Optional tag to publish, for example v1.0.3'
         required: false
         type: string
   push:
@@ -92,20 +92,21 @@ jobs:
 
             ### 本期更新
 
-            - 产品更名为 FreeNotes
-            - 主存储从整文件 JSON 切换为 SQLite；保留 JSON 导出、备份和恢复兼容
-            - 支持完整 JSON 备份导出与整体恢复，用于跨平台迁移
-            - 支持单条备忘录导出为自包含 HTML 和 PDF
+            - 主存储使用 SQLite，图片改为附件目录并通过数据库索引关联
+            - 旧版 base64 图片会在首次启动时自动迁移为附件文件
+            - 完整备份升级为 `.freenotes.zip`，包含 JSON 索引和附件文件
+            - 每日自动备份改为轻量 SQLite 快照
+            - 移除整库 120MB 保存上限
+            - 单条 HTML/PDF 导出仍保持自包含
+            - 兼容旧版 JSON 备份恢复
             - macOS 使用系统原生红黄绿窗口按钮和原生应用菜单
-            - Windows/Linux 保持原有自绘标题栏
-            - 首次启动自动迁移旧版 MacNotes 数据
 
             ### 下载
 
-            - macOS Apple Silicon：`FreeNotes-1.0.2-arm64.dmg`
-            - macOS Intel：`FreeNotes-1.0.2-x64.dmg`
-            - Windows x64：`FreeNotes-1.0.2-x64.exe`
-            - Linux x86_64：`FreeNotes-1.0.2-x86_64.AppImage` / `FreeNotes-1.0.2-amd64.deb`
+            - macOS Apple Silicon：`FreeNotes-1.0.3-arm64.dmg`
+            - macOS Intel：`FreeNotes-1.0.3-x64.dmg`
+            - Windows x64：`FreeNotes-1.0.3-x64.exe`
+            - Linux x86_64：`FreeNotes-1.0.3-x86_64.AppImage` / `FreeNotes-1.0.3-amd64.deb`
 
             ### 说明
 

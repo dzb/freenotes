@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Note } from '../src/shared/types';
-import { parseSearchQuery, searchNotes, displayNoteTitle, highlightTerms } from '../src/renderer/lib/search';
+import { buildSearchIndex, parseSearchQuery, searchNotes, displayNoteTitle, highlightTerms, searchNotesFromIndex } from '../src/renderer/lib/search';
 
 const makeNote = (overrides: Partial<Note>): Note => ({
   id: crypto.randomUUID(),
@@ -92,6 +92,12 @@ describe('searchNotes', () => {
   it('never returns results for an empty query', () => {
     expect(searchNotes(notes, '   ')).toHaveLength(0);
     expect(highlightTerms('   ')).toEqual([]);
+  });
+
+  it('returns identical results with a prepared in-memory search index', () => {
+    const index = buildSearchIndex(notes);
+    expect(searchNotesFromIndex(index, '灵感')).toEqual(searchNotes(notes, '灵感'));
+    expect(searchNotesFromIndex(index, '灵感 散步')).toEqual(searchNotes(notes, '灵感 散步'));
   });
 
   it('falls back to the first line when a note has no title', () => {

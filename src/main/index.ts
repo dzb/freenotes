@@ -16,12 +16,26 @@ import type { NotebookData, RestoreResult, SaveResult } from '../shared/types';
 import { isNotebookData, parseBackupContent } from '../shared/backup';
 import { migrateLegacyData } from './migrateData';
 import { installApplicationMenu } from './menu';
-import { exportBackupFile, exportNoteHtmlFile, exportNotePdfFile } from './files';
+import { exportNoteHtmlFile, exportNotePdfFile } from './files';
 import { NotebookDatabase } from './database';
+import {
+  AttachmentStore,
+  assetUrlFor,
+  migrateNotebookInlineImages,
+  registerAttachmentProtocol,
+  registerAttachmentScheme,
+} from './attachments';
+import {
+  cleanupBackupInspection,
+  exportBackupBundle,
+  importBackupAttachments,
+  readBackupBundle,
+  type BackupInspection,
+} from './backupBundle';
 
 app.setName('FreeNotes');
+registerAttachmentScheme();
 
-const MAX_BACKUP_BYTES = 120 * 1024 * 1024;
 const MAX_RESTORE_POINTS = 5;
 
 // Allow scripts and portable installs to keep their data in an isolated directory.
@@ -37,6 +51,7 @@ if (customDataDir) {
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
 let mainWindow: BrowserWindow | null = null;
 let database: NotebookDatabase | null = null;
+let attachmentStore: AttachmentStore | null = null;
 let dataPath = '';
 let legacyJsonPath = '';
 let backupDir = '';
@@ -82,12 +97,20 @@ async function setupPaths() {
   fs.mkdirSync(userData, { recursive: true });
   fs.mkdirSync(backupDir, { recursive: true });
   database = new NotebookDatabase(dataPath);
+  attachmentStore = new AttachmentStore(userData, database);
+
+  if (database.isInitialized() && database.needsAttachmentMigration()) {
+    const current = database.load();
+    if (current) {
+      const migrated = await migrateNotebookInlineImages(current, attachmentStore);
+      const saved = database.save(migrated.data);
+      if (!saved.ok) throw new Error(saved.error ?? '旧图片迁移到附件目录失败。');
+      database.saveAttachments(migrated.attachments);
+    }
+    database.markAttachmentMigrationComplete();
+  }
 
   if (!database.isInitialized() && fs.existsSync(legacyJsonPath)) {
-    const stat = await fsp.stat(legacyJsonPath);
-    if (!stat.isFile() || stat.size > MAX_BACKUP_BYTES) {
-      throw new Error('旧版 notes-data.json 无效或超过 120MB 限制。');
-    }
     const raw = await fsp.readFile(legacyJsonPath, 'utf8');
     let imported: NotebookData;
     try {
@@ -96,7 +119,8 @@ async function setupPaths() {
       console.error('[freenotes] Failed to parse legacy JSON data:', error);
       throw new Error('旧版 notes-data.json 无法解析，已保留原文件。');
     }
-    const result = database.replace(imported);
+    const migrated = await migrateNotebookInlineImages(imported, attachmentStore);
+    const result = database.replace(migrated.data, migrated.attachments);
     if (!result.ok) throw new Error(result.error ?? '旧版数据导入 SQLite 失败。');
     console.info('[freenotes] Imported legacy notes-data.json into notes.db');
   }
@@ -111,21 +135,18 @@ function maybeBackupExistingFile(): void {
   const day = todayKey();
   if (backupDay === day) return;
   backupDay = day;
-  const snapshot = database?.snapshot();
-  if (!snapshot) return;
+  if (!database?.isInitialized()) return;
   try {
-    const backupPath = path.join(backupDir, `notes-${day}.json`);
-    const tmpPath = `${backupPath}.${process.pid}.tmp`;
-    fs.writeFileSync(tmpPath, JSON.stringify(snapshot), { encoding: 'utf8', mode: 0o600 });
-    fs.renameSync(tmpPath, backupPath);
+    const backupPath = path.join(backupDir, `notes-${day}.db`);
+    database.createSnapshot(backupPath);
     const entries = fs
       .readdirSync(backupDir)
-      .filter((name) => /^notes-\d{4}-\d{2}-\d{2}\.json$/.test(name))
+      .filter((name) => /^notes-\d{4}-\d{2}-\d{2}\.db$/.test(name))
       .sort()
       .reverse();
     for (const name of entries.slice(10)) fs.rmSync(path.join(backupDir, name), { force: true });
   } catch (error) {
-    console.error('[freenotes] Backup failed:', error);
+    console.error('[freenotes] Database backup failed:', error);
   }
 }
 
@@ -134,10 +155,6 @@ async function writeData(data: unknown): Promise<SaveResult> {
   if (!isNotebookData(data)) {
     return { ok: false, error: '数据格式无效，已取消保存。' };
   }
-  if (JSON.stringify(data).length > MAX_BACKUP_BYTES) {
-    return { ok: false, error: '数据文件超过 120MB，保存已取消。' };
-  }
-
   maybeBackupExistingFile();
   return database.save(data);
 }
@@ -147,42 +164,32 @@ function writeDataSync(data: unknown): SaveResult {
   if (!isNotebookData(data)) {
     return { ok: false, error: '数据格式无效，已取消保存。' };
   }
-  if (JSON.stringify(data).length > MAX_BACKUP_BYTES) {
-    return { ok: false, error: '数据文件超过 120MB，保存已取消。' };
-  }
   return database.save(data);
 }
 
-function createRestoreSnapshot(data: NotebookData): void {
-  const snapshotPath = path.join(backupDir, `pre-restore-${restoreStamp()}.json`);
-  const tmpPath = `${snapshotPath}.${process.pid}.tmp`;
-  try {
-    fs.writeFileSync(tmpPath, JSON.stringify(data), { encoding: 'utf8', mode: 0o600 });
-    fs.renameSync(tmpPath, snapshotPath);
-  } catch (error) {
-    try {
-      fs.rmSync(tmpPath, { force: true });
-    } catch {
-      // ignore cleanup failures
-    }
-    throw error;
-  }
-
+function createRestoreSnapshot(): void {
+  if (!database) throw new Error('本地数据库尚未初始化。');
+  const snapshotPath = path.join(backupDir, `pre-restore-${restoreStamp()}.db`);
+  database.createSnapshot(snapshotPath);
   const entries = fs
     .readdirSync(backupDir)
-    .filter((name) => /^pre-restore-\d{4}-\d{2}-\d{2}-\d{6}\.json$/.test(name))
+    .filter((name) => /^pre-restore-\d{4}-\d{2}-\d{2}-\d{6}\.db$/.test(name))
     .sort()
     .reverse();
   for (const name of entries.slice(MAX_RESTORE_POINTS)) fs.rmSync(path.join(backupDir, name), { force: true });
 }
 
-async function restoreBackup(currentData: NotebookData): Promise<RestoreResult> {
+async function restoreBackup(_currentData: NotebookData): Promise<RestoreResult> {
+  let inspection: BackupInspection | null = null;
   try {
     const window = BrowserWindow.getFocusedWindow();
     const options: Electron.OpenDialogOptions = {
       title: '从 FreeNotes 备份恢复',
       properties: ['openFile'],
-      filters: [{ name: 'FreeNotes 备份', extensions: ['json'] }],
+      filters: [
+        { name: 'FreeNotes 备份', extensions: ['zip', 'json'] },
+        { name: 'JSON 备份（旧版）', extensions: ['json'] },
+      ],
     };
     const picked = window
       ? await dialog.showOpenDialog(window, options)
@@ -191,18 +198,21 @@ async function restoreBackup(currentData: NotebookData): Promise<RestoreResult> 
       return { ok: false, canceled: true };
     }
 
+    if (!database || !attachmentStore) return { ok: false, error: '本地数据库尚未初始化。' };
     const filePath = picked.filePaths[0];
-    const stat = await fsp.stat(filePath);
-    if (!stat.isFile() || stat.size > MAX_BACKUP_BYTES) {
-      return { ok: false, error: '备份文件无效或超过 120MB 限制。' };
+    const isZip = filePath.toLowerCase().endsWith('.zip');
+    let imported: NotebookData;
+    if (isZip) {
+      inspection = await readBackupBundle(filePath);
+      imported = inspection.data;
+    } else {
+      imported = parseBackupContent(await fsp.readFile(filePath, 'utf8'));
     }
 
-    const raw = await fsp.readFile(filePath, 'utf8');
-    const imported = parseBackupContent(raw);
     const folderCount = imported.folders.length;
     const trashCount = imported.notes.filter((note) => note.deletedAt !== null).length;
     const noteCount = imported.notes.length - trashCount;
-
+    const detail = `备份包含 ${folderCount} 个文件夹、${noteCount} 条备忘录和 ${trashCount} 条最近删除。\n\n恢复前会自动保存当前数据库快照。`;
     const confirmation = window
       ? await dialog.showMessageBox(window, {
           type: 'warning',
@@ -210,7 +220,7 @@ async function restoreBackup(currentData: NotebookData): Promise<RestoreResult> 
           defaultId: 0,
           cancelId: 0,
           message: '恢复备份会覆盖当前全部备忘录。',
-          detail: `备份包含 ${folderCount} 个文件夹、${noteCount} 条备忘录和 ${trashCount} 条最近删除。\n\n恢复前会自动保存当前数据快照。`,
+          detail,
         })
       : await dialog.showMessageBox({
           type: 'warning',
@@ -218,15 +228,23 @@ async function restoreBackup(currentData: NotebookData): Promise<RestoreResult> 
           defaultId: 0,
           cancelId: 0,
           message: '恢复备份会覆盖当前全部备忘录。',
-          detail: `备份包含 ${folderCount} 个文件夹、${noteCount} 条备忘录和 ${trashCount} 条最近删除。\n\n恢复前会自动保存当前数据快照。`,
+          detail,
         });
     if (confirmation.response !== 1) return { ok: false, canceled: true };
 
-    if (!database) return { ok: false, error: '本地数据库尚未初始化。' };
-    createRestoreSnapshot(currentData);
-    const saved = database.replace(imported);
+    createRestoreSnapshot();
+    const manifestAttachments = inspection ? await importBackupAttachments(inspection, attachmentStore) : [];
+    const inlineMigrated = await migrateNotebookInlineImages(imported, attachmentStore);
+    const restored = inlineMigrated.data;
+    const attachmentMap = new Map(
+      [...manifestAttachments, ...inlineMigrated.attachments].map((attachment) => [
+        attachment.relativePath,
+        attachment,
+      ]),
+    );
+    const saved = database.replace(restored, [...attachmentMap.values()]);
     if (!saved.ok) return { ok: false, error: saved.error ?? '恢复备份失败。' };
-    return { ok: true, data: imported };
+    return { ok: true, data: restored };
   } catch (error) {
     console.error('[freenotes] Backup restore failed:', error);
     const message = error instanceof Error ? error.message : '';
@@ -234,6 +252,8 @@ async function restoreBackup(currentData: NotebookData): Promise<RestoreResult> 
       ok: false,
       error: message.includes('备份') || message.includes('JSON') ? message : '恢复备份失败，请检查备份文件和数据目录权限。',
     };
+  } finally {
+    if (inspection) await cleanupBackupInspection(inspection);
   }
 }
 
@@ -397,7 +417,8 @@ function registerIpc() {
 
   ipcMain.handle('backup:export', async (_event, data: unknown) => {
     if (!isNotebookData(data)) return { ok: false, error: '当前数据格式无效，无法导出。' };
-    return exportBackupFile(data);
+    if (!attachmentStore) return { ok: false, error: '附件存储尚未初始化。' };
+    return exportBackupBundle(data, attachmentStore);
   });
 
   ipcMain.handle('backup:restore', async (_event, currentData: unknown) => {
@@ -410,14 +431,47 @@ function registerIpc() {
     if (typeof html !== 'string' || typeof suggestedName !== 'string') {
       return { ok: false, error: '导出参数无效。' };
     }
-    return exportNoteHtmlFile(html, suggestedName);
+    if (!attachmentStore) return { ok: false, error: '附件存储尚未初始化。' };
+    try {
+      return exportNoteHtmlFile(await attachmentStore.inlineAssets(html), suggestedName);
+    } catch (error) {
+      console.error('[freenotes] Failed to inline attachments for HTML export:', error);
+      return { ok: false, error: '导出 HTML 失败，部分图片附件缺失。' };
+    }
   });
 
   ipcMain.handle('note:export-pdf', async (_event, html: unknown, suggestedName: unknown) => {
     if (typeof html !== 'string' || typeof suggestedName !== 'string') {
       return { ok: false, error: '导出参数无效。' };
     }
-    return exportNotePdfFile(html, suggestedName);
+    if (!attachmentStore) return { ok: false, error: '附件存储尚未初始化。' };
+    try {
+      return exportNotePdfFile(await attachmentStore.inlineAssets(html), suggestedName);
+    } catch (error) {
+      console.error('[freenotes] Failed to inline attachments for PDF export:', error);
+      return { ok: false, error: '导出 PDF 失败，部分图片附件缺失。' };
+    }
+  });
+
+  ipcMain.handle('attachment:save', async (_event, fileName: unknown, mimeType: unknown, data: unknown) => {
+    if (typeof fileName !== 'string' || typeof mimeType !== 'string') {
+      return { ok: false, error: '附件参数无效。' };
+    }
+    if (!attachmentStore) return { ok: false, error: '附件存储尚未初始化。' };
+    try {
+      const bytes =
+        data instanceof Uint8Array
+          ? data
+          : data instanceof ArrayBuffer
+            ? new Uint8Array(data)
+            : null;
+      if (!bytes) return { ok: false, error: '附件内容无效。' };
+      const attachment = await attachmentStore.saveBuffer(bytes, fileName, mimeType);
+      return { ok: true, attachment, url: assetUrlFor(attachment.relativePath) };
+    } catch (error) {
+      console.error('[freenotes] Failed to save attachment:', error);
+      return { ok: false, error: error instanceof Error ? error.message : '保存图片附件失败。' };
+    }
   });
 
   ipcMain.on('window:minimize', (event) => {
@@ -448,6 +502,7 @@ if (gotLock) {
     } catch (error) {
       startupError = error instanceof Error ? error : new Error('无法初始化数据目录。');
     }
+    if (attachmentStore) registerAttachmentProtocol(attachmentStore);
     registerIpc();
     app.setAboutPanelOptions({
       applicationName: 'FreeNotes',

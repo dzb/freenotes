@@ -2,10 +2,9 @@ import { app, BrowserWindow, dialog } from 'electron';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import type { FileExportResult, FreeNotesBackup, NotebookData } from '../shared/types';
+import type { FileExportResult } from '../shared/types';
 import { sanitizeExportName } from '../shared/filename';
 
-const MAX_EXPORT_BYTES = 120 * 1024 * 1024;
 
 function dateStamp(date = new Date()): string {
   const pad = (value: number) => String(value).padStart(2, '0');
@@ -44,32 +43,9 @@ async function writeFileAtomically(filePath: string, contents: string | Uint8Arr
   }
 }
 
-export async function exportBackupFile(data: NotebookData): Promise<FileExportResult> {
-  const fileName = `FreeNotes-backup-${dateStamp()}.freenotes.json`;
-  try {
-    const filePath = await showSaveDialog('导出完整备份', fileName, [
-      { name: 'FreeNotes 备份', extensions: ['json'] },
-    ]);
-    if (!filePath) return { ok: false, canceled: true };
-
-    const backup: FreeNotesBackup = {
-      format: 'freenotes-backup',
-      formatVersion: 1,
-      appVersion: app.getVersion(),
-      exportedAt: Date.now(),
-      data,
-    };
-    await writeFileAtomically(filePath, JSON.stringify(backup));
-    return { ok: true, filePath };
-  } catch (error) {
-    console.error('[freenotes] Backup export failed:', error);
-    return { ok: false, error: '导出备份失败，请检查目标文件夹权限。' };
-  }
-}
-
 export async function exportNoteHtmlFile(html: string, suggestedName: string): Promise<FileExportResult> {
-  if (typeof html !== 'string' || !html.trim() || Buffer.byteLength(html, 'utf8') > MAX_EXPORT_BYTES) {
-    return { ok: false, error: '导出内容为空或超过大小限制。' };
+  if (typeof html !== 'string' || !html.trim()) {
+    return { ok: false, error: '导出内容为空。' };
   }
   try {
     const fileName = withExtension(sanitizeExportName(suggestedName, '未命名备忘录'), '.html');
@@ -87,8 +63,8 @@ export async function exportNoteHtmlFile(html: string, suggestedName: string): P
 }
 
 export async function exportNotePdfFile(html: string, suggestedName: string): Promise<FileExportResult> {
-  if (typeof html !== 'string' || !html.trim() || Buffer.byteLength(html, 'utf8') > MAX_EXPORT_BYTES) {
-    return { ok: false, error: '导出内容为空或超过大小限制。' };
+  if (typeof html !== 'string' || !html.trim()) {
+    return { ok: false, error: '导出内容为空。' };
   }
 
   try {

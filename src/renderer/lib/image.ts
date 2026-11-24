@@ -1,37 +1,34 @@
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const MAX_EDGE = 1800;
 
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error('读取图片失败'));
-    reader.readAsDataURL(file);
-  });
+export interface PreparedImageAttachment {
+  data: ArrayBuffer;
+  fileName: string;
+  mimeType: string;
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error('读取图片失败'));
-    reader.readAsDataURL(blob);
-  });
+function withExtension(fileName: string, extension: string): string {
+  const withoutExtension = fileName.replace(/\.[^.]+$/, '');
+  return `${withoutExtension || 'image'}.${extension}`;
 }
 
-export async function imageFileToDataUrl(file: File): Promise<string> {
+async function originalAttachment(file: File): Promise<PreparedImageAttachment> {
+  return {
+    data: await file.arrayBuffer(),
+    fileName: file.name || 'image',
+    mimeType: file.type,
+  };
+}
+
+export async function prepareImageAttachment(file: File): Promise<PreparedImageAttachment> {
   if (!file.type.startsWith('image/')) throw new Error('请选择图片文件。');
-  if (file.size > MAX_FILE_SIZE) throw new Error('图片不能超过 20MB。');
-
-  const original = await readAsDataUrl(file);
-  if (file.type === 'image/gif') return original;
+  if (file.type === 'image/gif') return originalAttachment(file);
 
   try {
     const bitmap = await createImageBitmap(file);
     const longestEdge = Math.max(bitmap.width, bitmap.height);
     if (longestEdge <= MAX_EDGE && file.size <= 900 * 1024) {
       bitmap.close();
-      return original;
+      return originalAttachment(file);
     }
 
     const scale = Math.min(1, MAX_EDGE / longestEdge);
@@ -43,7 +40,7 @@ export async function imageFileToDataUrl(file: File): Promise<string> {
     const context = canvas.getContext('2d');
     if (!context) {
       bitmap.close();
-      return original;
+      return originalAttachment(file);
     }
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = 'high';
@@ -53,10 +50,14 @@ export async function imageFileToDataUrl(file: File): Promise<string> {
     const blob = await new Promise<Blob | null>((resolve) => {
       canvas.toBlob((result) => resolve(result), 'image/webp', 0.88);
     });
-    if (!blob || blob.size >= file.size) return original;
-    return await blobToDataUrl(blob);
+    if (!blob || blob.size >= file.size) return originalAttachment(file);
+    return {
+      data: await blob.arrayBuffer(),
+      fileName: withExtension(file.name, 'webp'),
+      mimeType: 'image/webp',
+    };
   } catch (error) {
-    console.warn('[macnotes] Image optimization skipped', error);
-    return original;
+    console.warn('[freenotes] Image optimization skipped', error);
+    return originalAttachment(file);
   }
 }
