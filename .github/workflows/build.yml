@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Optional tag to publish, for example v1.0.9'
+        description: 'Optional tag to publish, for example v1.0.10'
         required: false
         type: string
   push:
@@ -103,16 +103,17 @@ jobs:
             - 搜索关闭时不再构建索引，编辑时只更新变化的单条搜索缓存
             - 正文默认字号调整为 14px，新增 13/14/15/16/18px 字号和系统/衬线/等宽字体设置
             - 调整文件夹视图的列表标题字号；恢复备忘行内文件夹标签的原有样式
+            - 收敛正文排版层级：笔记标题随字号联动，正文标题、行高和导出样式同步优化
             - Linux 增加 Fedora/RHEL 可安装的 RPM 发行包
             - macOS 构建使用 ad-hoc 签名，修复无签名 App Bundle 被误判为已损坏的问题
             - macOS 使用系统原生红黄绿窗口按钮和原生应用菜单
 
             ### 下载
 
-            - macOS Apple Silicon：`FreeNotes-1.0.9-arm64.dmg`
-            - macOS Intel：`FreeNotes-1.0.9-x64.dmg`
-            - Windows x64：`FreeNotes-1.0.9-x64.exe`
-            - Linux x86_64：`FreeNotes-1.0.9-x86_64.AppImage` / `FreeNotes-1.0.9-amd64.deb` / `FreeNotes-1.0.9-x86_64.rpm`
+            - macOS Apple Silicon：`FreeNotes-1.0.10-arm64.dmg`
+            - macOS Intel：`FreeNotes-1.0.10-x64.dmg`
+            - Windows x64：`FreeNotes-1.0.10-x64.exe`
+            - Linux x86_64：`FreeNotes-1.0.10-x86_64.AppImage` / `FreeNotes-1.0.10-amd64.deb` / `FreeNotes-1.0.10-x86_64.rpm`
 
             ### 说明
 

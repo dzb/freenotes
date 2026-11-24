@@ -1151,10 +1151,10 @@ mark {
   field-sizing: content;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 28px;
-  font-weight: 680;
-  line-height: 1.24;
-  letter-spacing: -0.038em;
+  font-size: clamp(22px, calc(var(--editor-font-size) + 10px), 30px);
+  font-weight: 660;
+  line-height: 1.28;
+  letter-spacing: -0.032em;
   caret-color: var(--accent-strong);
 }
 
@@ -1172,7 +1172,7 @@ mark {
 }
 
 .editor-body {
-  margin-top: 17px;
+  margin-top: 14px;
   user-select: text;
 }
 

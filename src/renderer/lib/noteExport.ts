@@ -35,13 +35,13 @@ function exportStyles(typography: NoteExportTypography): string {
     background: #ffffff;
     font-family: ${FONT_STACKS[typography.fontFamily]};
     font-size: ${typography.fontSize}px;
-    line-height: 1.75;
+    line-height: 1.7;
     word-break: break-word;
   }
-  h1, h2, h3 { color: #1f1e1b; line-height: 1.35; margin: 1.4em 0 0.55em; }
-  h1 { font-size: 2em; }
-  h2 { font-size: 1.53em; }
-  h3 { font-size: 1.2em; }
+  h1, h2, h3 { color: #1f1e1b; line-height: 1.32; margin: 1.25em 0 0.5em; }
+  h1 { font-size: 1.5em; }
+  h2 { font-size: 1.2em; }
+  h3 { font-size: 1.05em; }
   p { margin: 0.65em 0; }
   a { color: #a56a1b; text-decoration: underline; text-underline-offset: 2px; }
   strong { font-weight: 650; }
@@ -66,7 +66,7 @@ function exportStyles(typography: NoteExportTypography): string {
   code { font-family: "SFMono-Regular", Consolas, monospace; background: #f4f1ea; padding: 0.12em 0.32em; border-radius: 4px; }
   pre { overflow-x: auto; padding: 1em; background: #f4f1ea; border-radius: 6px; white-space: pre-wrap; }
   hr { border: 0; border-top: 1px solid #e5e1d8; margin: 2em 0; }
-  .note-export-title { margin-top: 0; margin-bottom: 1.4em; }
+  .note-export-title { margin-top: 0; margin-bottom: 1.25em; font-size: 1.7em; line-height: 1.28; letter-spacing: -0.02em; }
   .note-export-title:empty { display: none; }
   @page { size: A4; margin: 18mm; }
   @media print {

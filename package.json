@@ -1,6 +1,6 @@
 {
   "name": "macnotes",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "private": true,
   "description": "一款本地优先的 macOS 风格笔记应用，支持 SQLite 存储、全文搜索、附件备份与单条导出。",
   "desktopName": "macnotes.desktop",
